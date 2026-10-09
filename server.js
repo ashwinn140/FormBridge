@@ -25,7 +25,7 @@ const PORT = process.env.PORT || 8080;
 const SECRET = process.env.SESSION_SECRET || '';
 const SESSION_HOURS = Number(process.env.SESSION_HOURS) || 12;
 
-/* ---------- users: APP_USERS="amey:password1,kuldeep:password2" ---------- */
+/* ---------- users: APP_USERS="amey:password1,kuldeep:password2,dheeraj:password3,yogesh:password4" ---------- */
 function loadUsers() {
   const users = new Map();
   String(process.env.APP_USERS || '').split(',').forEach(pair => {
