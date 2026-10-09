@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>FormBridge — Export Filing Tools</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F3F5F4;
+    --surface: #FFFFFF;
+    --ink: #16222B;
+    --ink-soft: #57666F;
+    --ink-faint: #8A98A0;
+    --border: #DCE3E2;
+    --border-strong: #B9C4C8;
+    --sandvik: #2C6E76;
+    --sandvik-soft: #E4EEEE;
+    --seco: #2E6BD6;
+    --seco-soft: #EAF1FD;
+    --anu: #0B5C73;
+    --anu-soft: #E2EFF3;
+    --vvdn: #7A4FB5;
+    --vvdn-soft: #F0EAF8;
+    --radius: 10px;
+    --shadow: 0 1px 2px rgba(22,34,43,0.06), 0 1px 1px rgba(22,34,43,0.04);
+    --shadow-hover: 0 6px 20px rgba(22,34,43,0.08), 0 1px 2px rgba(22,34,43,0.06);
+    color-scheme: light dark;
+  }
+  :root:not([data-theme="light"]) {
+    @media (prefers-color-scheme: dark) {
+      --bg: #12181C;
+      --surface: #1A2226;
+      --ink: #E7EDEF;
+      --ink-soft: #9FB0B6;
+      --ink-faint: #6E7E84;
+      --sandvik: #62C2CA;
+      --sandvik-soft: #1B2C2D;
+      --seco: #7CAAF0;
+      --seco-soft: #1B2636;
+      --anu: #5FBAD3;
+      --anu-soft: #1A2B31;
+      --vvdn: #B79AE3;
+      --vvdn-soft: #251E31;
+      --border: #2A363B;
+      --border-strong: #3A484D;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12181C;
+    --surface: #1A2226;
+    --ink: #E7EDEF;
+    --ink-soft: #9FB0B6;
+    --ink-faint: #6E7E84;
+    --sandvik: #62C2CA;
+    --sandvik-soft: #1B2C2D;
+    --seco: #7CAAF0;
+    --seco-soft: #1B2636;
+    --anu: #5FBAD3;
+    --anu-soft: #1A2B31;
+    --vvdn: #B79AE3;
+    --vvdn-soft: #251E31;
+    --border: #2A363B;
+    --border-strong: #3A484D;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'IBM Plex Sans', -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .wrap {
+    max-width: 740px;
+    margin: 0 auto;
+    padding: 60px 24px 64px;
+  }
+  .masthead {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+  .kicker {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  .brandmark {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+  }
+  .brandmark .dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--sandvik), var(--seco), var(--anu), var(--vvdn));
+    flex-shrink: 0;
+  }
+  h1 {
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    margin: 8px 0 10px;
+  }
+  .restricted {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11.5px;
+    letter-spacing: 0.02em;
+    color: var(--ink-faint);
+    margin: 0 0 18px;
+  }
+  .lede {
+    color: var(--ink-soft);
+    font-size: 14.5px;
+    line-height: 1.6;
+    max-width: 50ch;
+    margin: 0 0 40px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 32px;
+  }
+  .tools {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .tool {
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 24px 24px 24px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    overflow: hidden;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+  }
+  .tool::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 4px;
+    background: var(--accent);
+  }
+  .tool:hover {
+    border-color: var(--border-strong);
+    box-shadow: var(--shadow-hover);
+    transform: translateY(-1px);
+  }
+  .tool.sandvik { --accent: var(--sandvik); }
+  .tool.seco { --accent: var(--seco); }
+  .tool.anu { --accent: var(--anu); }
+  .tool.vvdn { --accent: var(--vvdn); }
+
+  .tool-info h2 {
+    font-size: 17px;
+    font-weight: 600;
+    margin: 0 0 5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .tool-info .tag {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 4px;
+    color: var(--accent);
+    background: var(--tag-bg);
+  }
+  .tool.sandvik .tag { --tag-bg: var(--sandvik-soft); }
+  .tool.seco .tag { --tag-bg: var(--seco-soft); }
+  .tool.anu .tag { --tag-bg: var(--anu-soft); }
+  .tool.vvdn .tag { --tag-bg: var(--vvdn-soft); }
+
+  .tool-info .route {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--ink-faint);
+    margin: 0 0 9px;
+  }
+  .tool-info .desc {
+    font-size: 13.5px;
+    color: var(--ink-soft);
+    line-height: 1.55;
+    margin: 0;
+    max-width: 42ch;
+  }
+  .open-btn {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--accent);
+    color: #fff;
+    text-decoration: none;
+    font-size: 13.5px;
+    font-weight: 600;
+    padding: 11px 18px;
+    border-radius: 7px;
+    white-space: nowrap;
+    transition: filter 0.15s ease;
+  }
+  .open-btn:hover { filter: brightness(1.08); }
+  .open-btn:focus-visible, a:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  footer {
+    margin-top: 44px;
+    padding-top: 18px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--ink-faint);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .footer-line { display: flex; align-items: center; gap: 8px; }
+  .footer-line svg { flex-shrink: 0; opacity: 0.7; }
+  .footer-credit { font-family: 'IBM Plex Mono', monospace; }
+  @media (max-width: 520px) {
+    .tool { flex-direction: column; align-items: flex-start; padding-left: 24px; }
+    .open-btn { align-self: stretch; justify-content: center; }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="masthead">
+      <div class="brandmark">
+        <span class="dot"></span>
+        <span class="kicker">Export Filing Tools</span>
+      </div>
+      <div class="kicker">Internal</div>
+    </div>
+    <h1>FormBridge</h1>
+    <p class="restricted">Reserved only for New Globe Logistik LLP</p>
+    <p class="lede">Convert vendor invoices and Excel files into the exact CSV formats the ERP expects. Pick a converter below.</p>
+
+    <div class="tools">
+      <div class="tool sandvik">
+        <div class="tool-info">
+          <h2>Sandvik Coromant Converter <span class="tag">Sandvik</span></h2>
+          <p class="route">export invoice → ERP CSV (114 columns)</p>
+          <p class="desc">For Sandvik Coromant export invoices bound for Icegate filing via ERP upload.</p>
+        </div>
+        <a class="open-btn" href="sandvik-converter.html">Open →</a>
+      </div>
+
+      <div class="tool seco">
+        <div class="tool-info">
+          <h2>Seco Tools Converter <span class="tag">Seco</span></h2>
+          <p class="route">L Net vendor Excel → Seco Tool ERP CSV</p>
+          <p class="desc">Editable field mapping and HS-code-based SQC quantity/unit rules included.</p>
+        </div>
+        <a class="open-btn" href="seco-converter.html">Open →</a>
+      </div>
+
+      <div class="tool anu">
+        <div class="tool-info">
+          <h2>Anu Worles Solution Converter <span class="tag">Anu Worles</span></h2>
+          <p class="route">export invoice Excel → ERP CSV (114 columns)</p>
+          <p class="desc">For Anu Worles Tech export invoices. Checks the CSV totals against the invoice before you download.</p>
+        </div>
+        <a class="open-btn" href="anu-worles-converter.html">Open →</a>
+      </div>
+
+      <div class="tool anu">
+        <div class="tool-info">
+          <h2>Anu Worles Tech Converter <span class="tag">Anu Worles</span></h2>
+          <p class="route">export invoice Excel → ERP CSV (114 columns)</p>
+          <p class="desc">For Anu Worles Tech export invoices, with every header value editable on screen before download.</p>
+        </div>
+        <a class="open-btn" href="anu-worles-tech-converter.html">Open →</a>
+      </div>
+
+      <div class="tool vvdn">
+        <div class="tool-info">
+          <h2>VVDN Converter <span class="tag">VVDN</span></h2>
+          <p class="route">device serial-number Excel (+ invoice PDF) → ERP CSV (114 columns)</p>
+          <p class="desc">One CSV row per serial-number row. The invoice PDF is optional and auto-fills invoice details.</p>
+        </div>
+        <a class="open-btn" href="vvdn-converter.html">Open →</a>
+      </div>
+    </div>
+
+    <footer>
+      <div class="footer-line">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        DPDP compliant — files are processed locally in your browser, nothing is saved or uploaded anywhere.
+      </div>
+      <div class="footer-credit">Made by AM</div>
+    </footer>
+  </div>
+</body>
+</html>
