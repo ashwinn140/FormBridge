@@ -24,6 +24,8 @@
     --anu-soft: #E2EFF3;
     --vvdn: #7A4FB5;
     --vvdn-soft: #F0EAF8;
+    --cass: #B0671A;
+    --cass-soft: #F8EEDF;
     --radius: 10px;
     --shadow: 0 1px 2px rgba(22,34,43,0.06), 0 1px 1px rgba(22,34,43,0.04);
     --shadow-hover: 0 6px 20px rgba(22,34,43,0.08), 0 1px 2px rgba(22,34,43,0.06);
@@ -44,6 +46,8 @@
       --anu-soft: #1A2B31;
       --vvdn: #B79AE3;
       --vvdn-soft: #251E31;
+      --cass: #E3A85F;
+      --cass-soft: #2E2418;
       --border: #2A363B;
       --border-strong: #3A484D;
     }
@@ -62,6 +66,8 @@
     --anu-soft: #1A2B31;
     --vvdn: #B79AE3;
     --vvdn-soft: #251E31;
+    --cass: #E3A85F;
+    --cass-soft: #2E2418;
     --border: #2A363B;
     --border-strong: #3A484D;
   }
@@ -102,7 +108,7 @@
     width: 9px;
     height: 9px;
     border-radius: 50%;
-    background: linear-gradient(135deg, var(--sandvik), var(--seco), var(--anu), var(--vvdn));
+    background: linear-gradient(135deg, var(--sandvik), var(--seco), var(--anu), var(--vvdn), var(--cass));
     flex-shrink: 0;
   }
   h1 {
@@ -162,6 +168,7 @@
   .tool.seco { --accent: var(--seco); }
   .tool.anu { --accent: var(--anu); }
   .tool.vvdn { --accent: var(--vvdn); }
+  .tool.cass { --accent: var(--cass); }
 
   .tool-info h2 {
     font-size: 17px;
@@ -186,6 +193,7 @@
   .tool.seco .tag { --tag-bg: var(--seco-soft); }
   .tool.anu .tag { --tag-bg: var(--anu-soft); }
   .tool.vvdn .tag { --tag-bg: var(--vvdn-soft); }
+  .tool.cass .tag { --tag-bg: var(--cass-soft); }
 
   .tool-info .route {
     font-family: 'IBM Plex Mono', monospace;
@@ -298,6 +306,15 @@
           <p class="desc">One CSV row per serial-number row. The invoice PDF is optional and auto-fills invoice details.</p>
         </div>
         <a class="open-btn" href="vvdn-converter.html">Open →</a>
+      </div>
+
+      <div class="tool cass">
+        <div class="tool-info">
+          <h2>IATA CASS Reconciliation <span class="tag">IATA CASS</span></h2>
+          <p class="route">CASS billing + shipment register → AWB-by-AWB reconciliation</p>
+          <p class="desc">Ties every AWB on the IATA CASS billing to a shipment in your register and flags what does not match.</p>
+        </div>
+        <a class="open-btn" href="cass-reconciliation.html">Open →</a>
       </div>
     </div>
 
