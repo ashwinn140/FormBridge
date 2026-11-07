@@ -1,0 +1,1189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ASB Converter · FormBridge</title>
+<style>
+:root{
+  --bg:#f6f7f8; --panel:#ffffff; --ink:#1b2430; --muted:#5d6978; --line:#d9dee4;
+  --accent:#0b5f66; --accent-ink:#ffffff; --warn-bg:#fff6df; --warn-line:#e4c36a; --warn-ink:#6b4e00;
+  --bad-bg:#fdeaea; --bad-line:#e49a9a; --bad-ink:#8a1f1f; --ok-bg:#e6f4ec; --ok-line:#8cc9a5; --ok-ink:#17562f;
+  --field:#ffffff; --hl:#fff1f0;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#14181d; --panel:#1c2229; --ink:#e7ebef; --muted:#9aa6b3; --line:#323b45;
+    --accent:#58b5bd; --accent-ink:#0d1418; --warn-bg:#3a3118; --warn-line:#7a6528; --warn-ink:#f1d98d;
+    --bad-bg:#3b1e1e; --bad-line:#7d3b3b; --bad-ink:#f3b4b4; --ok-bg:#16301f; --ok-line:#2f6a45; --ok-ink:#a9e0bd;
+    --field:#12171c; --hl:#3a2220; }
+}
+*{box-sizing:border-box}
+html{font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:15px}
+body{margin:0;background:var(--bg);color:var(--ink);line-height:1.45}
+.wrap{max-width:1120px;margin:0 auto;padding:22px 18px 60px}
+header h1{font-size:1.5rem;margin:0 0 4px;font-weight:650;letter-spacing:-.01em}
+header p{margin:0;color:var(--muted)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px 18px;margin-top:16px}
+.card h2{font-size:1.02rem;margin:0 0 10px;font-weight:650}
+.drop{border:2px dashed var(--line);border-radius:8px;padding:26px 16px;text-align:center;cursor:pointer;color:var(--muted);transition:border-color .15s,background .15s}
+.drop.over{border-color:var(--accent);background:rgba(11,95,102,.06)}
+.drop strong{color:var(--ink)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.chip{border:1px solid var(--line);border-radius:999px;padding:3px 11px;font-size:.86rem;background:var(--bg)}
+.chip.ok{border-color:var(--ok-line);background:var(--ok-bg);color:var(--ok-ink)}
+.chip.miss{border-color:var(--warn-line);background:var(--warn-bg);color:var(--warn-ink)}
+.box{border:1px solid;border-radius:6px;padding:10px 14px;margin-top:12px;font-size:.93rem}
+.box ul{margin:6px 0 0;padding-left:20px}
+.box.warn{background:var(--warn-bg);border-color:var(--warn-line);color:var(--warn-ink)}
+.box.bad{background:var(--bad-bg);border-color:var(--bad-line);color:var(--bad-ink)}
+.box.ok{background:var(--ok-bg);border-color:var(--ok-line);color:var(--ok-ink)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px 14px}
+.grid .wide{grid-column:1/-1}
+label.f{display:block;font-size:.8rem;color:var(--muted)}
+label.f input,label.f textarea,label.f select{display:block;width:100%;margin-top:3px}
+input[type=text],input[type=number],textarea,select{font:inherit;color:var(--ink);background:var(--field);border:1px solid var(--line);border-radius:5px;padding:6px 8px;min-width:0}
+textarea{resize:vertical;min-height:58px}
+input:focus,textarea:focus,select:focus,button:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.miss-field{border-color:var(--bad-line)!important;background:var(--hl)!important}
+.tw{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.88rem}
+th,td{border-bottom:1px solid var(--line);padding:4px 5px;text-align:left;vertical-align:top}
+th{font-weight:600;color:var(--muted);font-size:.78rem;white-space:nowrap}
+td input,td select{width:100%}
+td.n input{text-align:right}
+.btn{font:inherit;border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);border-radius:6px;padding:8px 16px;cursor:pointer;font-weight:600}
+.btn.sec{background:transparent;color:var(--accent)}
+.btn.sm{padding:3px 10px;font-weight:500;font-size:.85rem}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.row{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+details{margin-top:14px}
+summary{cursor:pointer;font-weight:600}
+.small{font-size:.84rem;color:var(--muted)}
+.kv th{width:230px}
+.kv td{word-break:break-word}
+footer{margin-top:26px;text-align:center;color:var(--muted);font-size:.84rem}
+.hidden{display:none}
+@media (max-width:620px){ .wrap{padding:14px 10px 40px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>ASB Converter</h1>
+  <p>ASB International’s shipping-bill Excel in, ERP upload workbook out.</p>
+</header>
+
+<div class="row" style="margin-top:16px" role="group" aria-label="Source">
+  <button class="btn" id="tabMain" aria-pressed="true">ASB Excel (main)</button>
+  <button class="btn sec" id="tabPilot" aria-pressed="false">Invoice and packing list (pilot only)</button>
+</div>
+
+<div id="mainMode">
+<section class="card">
+  <h2>1. Add the Excel ASB sent</h2>
+  <div class="drop" id="dropX" tabindex="0" role="button" aria-label="Choose Excel file">
+    <div><strong>Drop ASB’s Excel here</strong>, or the email zip that contains it</div>
+    <div class="small" style="margin-top:4px">or click to choose a file. The workbook is converted for ERP upload using the rules in Settings.</div>
+    <input id="fileX" type="file" accept=".xlsx,.zip" class="hidden">
+  </div>
+  <div class="chips" id="chipsX"></div>
+  <div id="pickWrap" class="hidden small" style="margin-top:8px">More than one Excel was found. Use this one:
+    <select id="pickX"></select></div>
+  <div id="statusX" class="small" style="margin-top:8px"></div>
+</section>
+<div id="resultsX" class="hidden">
+  <section class="card">
+    <h2>2. Check the conversion</h2>
+    <div id="issuesX"></div>
+    <div id="notesX"></div>
+    <h3 style="font-size:.95rem;margin:14px 0 6px">Cells changed from ASB’s file</h3>
+    <div class="tw" id="changesX"></div>
+    <p class="small" style="margin-bottom:0">Everything not listed here is copied across exactly as ASB sent it. Add or edit rules under Settings.</p>
+    <details>
+      <summary>Data rows found, by sheet</summary>
+      <div class="tw" id="countsX" style="margin-top:8px"></div>
+    </details>
+  </section>
+  <section class="card">
+    <h2>3. Download for ERP</h2>
+    <label class="small"><input type="checkbox" id="fxX" checked> Keep live formulas in calculated columns (only where ASB’s own numbers agree with the calculation)</label>
+    <div class="row" style="margin-top:12px">
+      <button class="btn" id="dlX">Download ERP workbook</button>
+      <span class="small" id="dlNameX"></span>
+    </div>
+  </section>
+</div>
+</div>
+
+<div id="pilotMode" class="hidden">
+<div class="box warn" style="margin-top:0">Pilot only. This builds the workbook from the invoice and packing list when ASB’s Excel isn’t available. Several fixed values are copied from one sample shipment, so check every field before downloading.</div>
+<section class="card" id="uploadCard">
+  <h2>1. Add the shipment documents</h2>
+  <div class="drop" id="drop" tabindex="0" role="button" aria-label="Choose files">
+    <div><strong>Drop the email zip here</strong>, or the invoice and packing-list PDFs</div>
+    <div class="small" style="margin-top:4px">or click to choose files. Excel files inside the zip are ignored.</div>
+    <input id="file" type="file" multiple accept=".pdf,.zip" class="hidden">
+  </div>
+  <div class="chips" id="chips"></div>
+  <div id="status" class="small" style="margin-top:8px"></div>
+</section>
+
+<div id="results" class="hidden">
+  <section class="card">
+    <h2>2. Check what was read</h2>
+    <div id="problems"></div>
+    <div id="notes"></div>
+    <h2 style="margin-top:16px">Shipment</h2>
+    <div class="grid" id="shipGrid"></div>
+    <h2 style="margin-top:18px">Items</h2>
+    <div class="tw"><table id="itemsTbl"></table></div>
+    <p class="small" id="itemsHint" style="margin-bottom:0"></p>
+  </section>
+
+  <section class="card">
+    <h2>3. Download</h2>
+    <div class="row">
+      <label class="small"><input type="checkbox" id="fx" checked> Keep live formulas in calculated columns (IGST taxable, IGST amount, product and invoice value, RoDTEP quantity)</label>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <button class="btn" id="dl">Download workbook</button>
+      <span class="small" id="dlName"></span>
+    </div>
+    <details open>
+      <summary>Preview of the workbook values</summary>
+      <div id="preview" class="tw" style="margin-top:8px"></div>
+    </details>
+  </section>
+</div>
+</div>
+
+<section class="card">
+  <details style="margin-top:0">
+    <summary>Settings: fixed values and lookup tables</summary>
+    <p class="small">These fill the columns that don’t come from the documents. Change them here, then use “Apply to this shipment”. “Save as my defaults” keeps them in this browser.</p>
+    <div id="settings"></div>
+    <div class="row" style="margin-top:14px">
+      <button class="btn sec" id="apply">Apply to this shipment</button>
+      <button class="btn sec" id="save">Save as my defaults</button>
+      <button class="btn sec" id="reset">Reset to built-in values</button>
+      <span class="small" id="setMsg"></span>
+    </div>
+  </details>
+</section>
+
+<footer>Reserved only for New Globe Logistik LLP</footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+/* ASB International converter core: CI + PL (PDF text items) -> 26-sheet shipping-bill upload workbook.
+   Pure functions only, so the same code runs in the browser and in Node tests. */
+var FBCORE = (function () {
+  'use strict';
+
+  /* ---------------- defaults (every one is editable in the page) ---------------- */
+  var DEFAULT_CONFIG = {
+    general: {
+      CustomHouseCode: 'INBOM4',
+      SB_Type: 'WHITE-FREE/DEEC',
+      Loading_Port: 'INBOM4',
+      Exporter_Name: 'ASB INTERNATIONAL PVT LTD',
+      BranchName: 'THANE',
+      ExporterType: 'F',
+      AD_Code: '0510647',
+      Origin_Country_Code: 'IN',
+      Type_of_Shipment: 'OS',
+      Export_Under: 'DC',
+      Nature_of_Cargo: 'P',
+      Package_Unit_Code: 'PKG',
+      Loose_Packets: '0',
+      Weight_Unit_Code: 'KGS',
+      Origin_State_Code: 'MAHARASHTRA',
+      Marks_Template: 'We intend to apply for RoDTEP scheme, EXPORT UNDER 100% E.O.U. VIDE GREEN CARD NO.21328 dtd:24.03.2025 VALID TILL 31.03.2030.(GST INV.NO.{inv} DATE:{date})'
+    },
+    invoice: {
+      Price_Includes_N_F_I_B: 'N',
+      Taxable_value_for_IGST: 'P',
+      Nature_of_Payment: 'DA'
+    },
+    item: {
+      Desc_Suffix: '/MOLD',
+      Per_Unit_No: '1',
+      Exim_Scheme_Code: '21',
+      PMV: '110.00',
+      PMV_Currency_Code: 'INR',
+      IGST_Pay_Status: 'LUT',
+      IGST_Rate: '18.00',
+      CompCessRate: '0.00',
+      Is_Reward_Item: 'Y',
+      End_Use_Suffix: 'X200',
+      Origin_District_Code: '497',
+      PTAFTA_Code: 'NCPTI',
+      Accessories_Status: '0',
+      DBK_Quantity: '0.000',
+      TP_Exporter_BrS_No: '0',
+      RoDTEP_Status: 'Y',
+      SQC_Weight_Unit: 'KGS',
+      StatementType: 'DEC',
+      StatementCode: 'RD001'
+    },
+    other: {
+      IEC_of_EOU: '0302009353',
+      Goods_Stuffed_at: 'DOCK',
+      Is_Sample_Accompanied: 'N',
+      Seal_Type: 'Self Seal',
+      Annexure_Filler: '.',
+      Verified_by_Examining_Officer: 'Y'
+    },
+    rules: [
+      { sheet: 'GENERAL', column: 'Exporter_Name', match: 'exact', find: 'ASB INTERNATIONAL PRIVATE LIMITED', replace: 'ASB INTERNATIONAL PVT LTD' }
+    ],
+    maps: {
+      units: { EA: 'NOS', NOS: 'NOS', PCS: 'PCS', PC: 'PCS', SET: 'SET', KG: 'KGS', KGS: 'KGS', MTR: 'MTR', LTR: 'LTR' },
+      toi: { FCA: 'FOB', FOB: 'FOB', CIF: 'CIF' },
+      ports: { CONAKRY: 'GNCKY' },
+      mode: { AIR: 'A' },
+      hs: { '84779000': 'WEIGHT' } /* WEIGHT = SQC qty is item net weight (KGS); QTY = SQC qty is invoice qty */
+    }
+  };
+  /* ---------------- small helpers ---------------- */
+  var MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  function num(s) {
+    if (typeof s === 'number') return s;
+    var n = parseFloat(String(s).replace(/,/g, '').trim());
+    return isNaN(n) ? 0 : n;
+  }
+  function fix(n, d) { return Number(n).toFixed(d); }
+  function r2(n) { return Math.round((n + Number.EPSILON) * 100) / 100; }
+  function fmtDate(dmy) { /* 04.11.2026 -> ' 04-Nov-2026' (leading space is how the ERP export writes it) */
+    var m = /(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})/.exec(dmy || '');
+    if (!m) return '';
+    return ' ' + ('0' + m[1]).slice(-2) + '-' + MON[parseInt(m[2], 10) - 1] + '-' + m[3];
+  }
+  var WORDNUM = { ONE: 1, TWO: 2, THREE: 3, FOUR: 4, FIVE: 5, SIX: 6, SEVEN: 7, EIGHT: 8, NINE: 9, TEN: 10, ELEVEN: 11, TWELVE: 12 };
+
+  /* group raw pdf.js text items into visual lines (items: {s,x,y}) */
+  function toLines(items, tol) {
+    tol = tol || 2.5;
+    var arr = items.filter(function (i) { return i.s && i.s.trim(); }).sort(function (a, b) { return b.y - a.y || a.x - b.x; });
+    var lines = [];
+    arr.forEach(function (it) {
+      var ln = null;
+      for (var k = 0; k < lines.length; k++) { if (Math.abs(lines[k].y - it.y) <= tol) { ln = lines[k]; break; } }
+      if (!ln) { ln = { y: it.y, items: [] }; lines.push(ln); }
+      ln.items.push(it);
+    });
+    lines.sort(function (a, b) { return b.y - a.y; });
+    lines.forEach(function (ln) {
+      ln.items.sort(function (a, b) { return a.x - b.x; });
+      ln.text = ln.items.map(function (i) { return i.s.trim(); }).join(' ').replace(/\s+/g, ' ').trim();
+    });
+    return lines;
+  }
+  function findItem(items, re) {
+    for (var i = 0; i < items.length; i++) { if (re.test(items[i].s)) return items[i]; }
+    return null;
+  }
+  /* text of items on (about) the same line as `ref`, to the right of x0 */
+  function rightOf(items, ref, x0) {
+    return items.filter(function (i) { return Math.abs(i.y - ref.y) <= 2.5 && i.x > (x0 == null ? ref.x + 1 : x0); })
+      .sort(function (a, b) { return a.x - b.x; }).map(function (i) { return i.s.trim(); }).join(' ').replace(/\s+/g, ' ').trim();
+  }
+  /* first text block directly below `ref` (same column) */
+  function below(items, ref, dy, tolX) {
+    dy = dy || 20; tolX = tolX == null ? 12 : tolX;
+    var c = items.filter(function (i) { return i.y < ref.y - 1 && i.y >= ref.y - dy && Math.abs(i.x - ref.x) <= tolX; })
+      .sort(function (a, b) { return b.y - a.y; });
+    return c.length ? c[0].s.trim() : '';
+  }
+  function colLines(items, xMin, xMax, yTop, yBot) {
+    var sel = items.filter(function (i) { return i.x >= xMin && i.x < xMax && i.y < yTop && i.y > yBot; });
+    return toLines(sel).map(function (l) { return l.text; });
+  }
+
+  /* ---------------- Commercial Invoice ---------------- */
+  function clean(items) { return items.filter(function (i) { return i.s && i.s.trim(); }); }
+
+  function parseCI(items) {
+    items = clean(items);
+    var out = { warnings: [] };
+    var all = toLines(items).map(function (l) { return l.text; }).join('\n');
+    out.rawText = all;
+
+    var invNo = findItem(items, /^Invoice No\./);
+    out.invoiceNo = invNo ? (rightOf(items, invNo).split(' ')[0] || '') : '';
+    if (!out.invoiceNo) { var m0 = /Invoice No\.\s*:\s*(\d+)/.exec(all); out.invoiceNo = m0 ? m0[1] : ''; }
+    var invDt = findItem(items, /^Invoice Date/);
+    out.invoiceDate = invDt ? (/\d{1,2}\.\d{1,2}\.\d{4}/.exec(rightOf(items, invDt)) || [''])[0] : '';
+    var splitX = invNo ? invNo.x - 8 : 285;
+
+    /* consignee (left column) */
+    var cons = findItem(items, /^CONSIGNEE/), preCar = findItem(items, /^Pre Carriage/);
+    var consLines = cons && preCar ? colLines(items, 0, splitX, cons.y - 3, preCar.y + 6) : [];
+    consLines = consLines.filter(function (t) { return !/^Tel\.?:?\s*Fax/i.test(t); });
+    out.consigneeName = consLines[0] || '';
+    var cRest = consLines.slice(1);
+    out.consigneeCountryName = '';
+    if (cRest.length) { var last = cRest[cRest.length - 1].replace(/\s*-\s*(-|[\w-]+)$/, '').trim(); out.consigneeCountryName = last; cRest[cRest.length - 1] = last; }
+    out.consigneeAddress = cRest.join(' ');
+
+    /* buyer if other than consignee (right column) */
+    var buyerLbl = findItem(items, /^Buyer \(if other/), cOrig = findItem(items, /^Country of Origin/);
+    var bl = buyerLbl && cOrig ? colLines(items, splitX, 1000, buyerLbl.y - 3, cOrig.y + 6) : [];
+    out.buyerName = bl[0] || '';
+    var telLine = bl.filter(function (t) { return /^Tel\.?/i.test(t); })[0] || '';
+    out.buyerTel = (/Tel\.?:?\s*([\d+() -]+?)(?:\s+Fax|$)/i.exec(telLine) || ['', ''])[1].trim();
+    var bAddr = bl.slice(1).filter(function (t) { return !/^Tel\.?/i.test(t); });
+    out.buyerCountryName = ''; out.buyerPin = ''; out.buyerCity = ''; out.buyerStreet = bAddr[0] || '';
+    var pinMatch = /,\s*-\s*([\w-]+)\s*$/.exec(bAddr[0] || '');
+    if (pinMatch) out.buyerPin = pinMatch[1];
+    var cityMatch = /(\S+)\s*,\s*-/.exec(bAddr[0] || '');
+    if (cityMatch) out.buyerCity = cityMatch[1];
+    if (bAddr.length > 1) out.buyerCountryName = bAddr[1];
+    out.buyerAddress = out.buyerName ? [out.buyerStreet, out.buyerCountryName, out.buyerCity, out.buyerCountryName, out.buyerPin, out.buyerTel].filter(Boolean).join(' ') : '';
+    out.hasBuyer = !!out.buyerName;
+
+    /* terms block */
+    var mode = findItem(items, /^Mode of dispatch/); out.mode = mode ? rightOf(items, mode).toUpperCase() : '';
+    var pay = findItem(items, /^Payment Terms/); out.paymentTerms = pay ? rightOf(items, pay) : '';
+    var del = findItem(items, /^Delivery\s*:/); out.delivery = del ? rightOf(items, del) : '';
+    var oth = findItem(items, /^Other Info/); out.otherInfo = oth ? rightOf(items, oth) : '';
+    var fd = findItem(items, /^Country Of Final Destination/i); out.finalDestCountryName = fd ? below(items, fd, 20, 20) : '';
+    var pol = findItem(items, /^Port of loading/i); out.portOfLoading = pol ? below(items, pol, 20) : '';
+    var pod = findItem(items, /^Port Of Discharge/i); out.portOfDischarge = pod ? below(items, pod, 20) : '';
+    var fdest = findItem(items, /^Final Destination\s*:/i); out.finalDestination = fdest ? below(items, fdest, 20) : '';
+    var pk = findItem(items, /No\. & kind of Packages/i); out.packagesText = pk ? below(items, pk, 20) : '';
+    var mk = findItem(items, /^Marks & Nos/i); out.marks = mk ? below(items, mk, 20) : '';
+
+    var ex = /Exchange Rate\s*1\s*([A-Z]{3})\s*=\s*(?:RS\.?|INR)\s*([\d.]+)/i.exec(all);
+    out.currency = ex ? ex[1].toUpperCase() : ''; out.exchangeRate = ex ? ex[2] : '';
+
+    /* item table */
+    var hdr = findItem(items, /^Description of Goods/);
+    var totLbl = items.filter(function (i) { return hdr && i.s.trim() === 'Total' && i.y < hdr.y - 20; }).sort(function (a, b) { return b.y - a.y; })[0];
+    var sub = totLbl || items.filter(function (i) { return /^Subtotal/.test(i.s); })[0];
+    out.items = []; out.freightTotal = 0;
+    if (hdr) {
+      var yTop = hdr.y - 14, yBot = sub ? sub.y + 3 : hdr.y - 400;
+      var body = items.filter(function (i) { return i.y < yTop && i.y > yBot; });
+      var rows = toLines(body);
+      var heading = '', cur = null, afterCountry = true;
+      rows.forEach(function (row) {
+        var its = row.items;
+        var sr = its.filter(function (i) { return i.x < 40 && /^\d+$/.test(i.s.trim()); })[0];
+        var hsn = its.filter(function (i) { return /^\d{8}$/.test(i.s.trim()); })[0];
+        if (sr && hsn) {
+          var cells = {};
+          its.forEach(function (i) { cells[Math.round(i.x)] = i.s.trim(); });
+          var nums = its.filter(function (i) { return i.x > hsn.x + 20; }).map(function (i) { return i.s.trim(); });
+          /* after HSN: unit, qty, rate, amount, freight, total */
+          var desc = its.filter(function (i) { return i !== sr && i.x < hsn.x - 5; }).map(function (i) { return i.s.trim(); }).join(' ');
+          cur = { sr: sr.s.trim(), heading: heading, name: desc, hsn: hsn.s.trim(), unit: nums[0] || '', qty: nums[1] || '', rate: nums[2] || '', amount: nums[3] || '', freight: nums[4] || '0', total: nums[5] || '' };
+          out.items.push(cur); afterCountry = false;
+          out.freightTotal += num(cur.freight);
+        } else if (/^Subtotal/i.test(row.text)) {
+          afterCountry = true;
+        } else if (/^\(?Country of Origin/i.test(row.text)) {
+          afterCountry = true;
+          if (cur) cur.originText = row.text;
+        } else if (!afterCountry && cur) {
+          cur.name = (cur.name + ' ' + row.text).trim();
+        } else {
+          heading = row.text;
+        }
+      });
+    }
+    var tot = /Total\s+([\d,]+\.\d+)\s*$/m.exec(all);
+    out.invoiceTotal = tot ? num(tot[1]) : 0;
+    if (!out.invoiceNo) out.warnings.push('Invoice number not found on the commercial invoice.');
+    if (!out.items.length) out.warnings.push('No item rows found on the commercial invoice.');
+    return out;
+  }
+
+  /* ---------------- Packing List ---------------- */
+  function parsePL(items) {
+    items = clean(items);
+    var out = { warnings: [], rows: [] };
+    var all = toLines(items).map(function (l) { return l.text; }).join('\n');
+    var m = /Invoice No\.\s*:\s*(\d+)/.exec(all); out.invoiceNo = m ? m[1] : '';
+    var pk = /(\bONE|TWO|THREE|FOUR|FIVE|SIX|SEVEN|EIGHT|NINE|TEN|\d+)\s+PACKAGES?/i.exec(all);
+    out.packagesCount = pk ? (WORDNUM[pk[1].toUpperCase()] || parseInt(pk[1], 10) || 0) : 0;
+    var kind = /\(\s*(\d+)\s+([A-Z ]+?)\s*\)/.exec(all); out.packageKind = kind ? kind[2].trim() : '';
+
+    var hdr = findItem(items, /^Description of Goods/);
+    var st = findItem(items, /^S\.Total/);
+    if (hdr) {
+      var yBot = st ? st.y + 3 : hdr.y - 400;
+      var nwHdr = findItem(items, /^N\/W/), gwHdr = findItem(items, /^G\/W/), qtyHdr = findItem(items, /^Q'?ty/), innerHdr = findItem(items, /^Inner No/);
+      var descX0 = innerHdr ? innerHdr.x + 32 : 78;
+      var body = items.filter(function (i) { return i.y < hdr.y - 6 && i.y > yBot; });
+      var lines = toLines(body, 3.5);
+      var heading = '';
+      lines.forEach(function (ln) {
+        var nw = ln.items.filter(function (i) { return nwHdr && Math.abs(i.x - nwHdr.x) < 25 && /^[\d.]+$/.test(i.s.trim()); })[0];
+        var gw = ln.items.filter(function (i) { return gwHdr && Math.abs(i.x - gwHdr.x) < 25 && /^[\d.]+$/.test(i.s.trim()); })[0];
+        var descIts = ln.items.filter(function (i) { return i.x >= descX0 && i.x < (qtyHdr ? qtyHdr.x - 6 : 280); });
+        var desc = descIts.map(function (i) { return i.s.trim(); }).join(' ');
+        if (nw && gw) {
+          var qty = ln.items.filter(function (i) { return qtyHdr && Math.abs(i.x - qtyHdr.x) < 20 && /^[\d.,]+$/.test(i.s.trim()); })[0];
+          var pkg = ln.items.filter(function (i) { return /^PKG/i.test(i.s.trim()); })[0];
+          out.rows.push({ heading: heading, name: desc, qty: qty ? qty.s.trim() : '', nw: num(nw.s), gw: num(gw.s), pkgRef: pkg ? ln.items.filter(function (i) { return i.x < descX0; }).map(function (i) { return i.s; }).join(' ') : '' });
+        } else if (desc && !/^Q'?ty|^SET$/i.test(desc)) {
+          heading = desc;
+        }
+      });
+      /* description line can sit 1pt off its data row; if a data row has no name, take the line just below/above it */
+    }
+    var tg = st ? items.filter(function (i) { return Math.abs(i.y - st.y) <= 3 && /^[\d.]+$/.test(i.s.trim()); }).sort(function (a, b) { return a.x - b.x; }) : [];
+    out.totalNW = tg.length >= 2 ? num(tg[0].s) : 0;
+    out.totalGW = tg.length >= 2 ? num(tg[1].s) : 0;
+    if (!out.rows.length) out.warnings.push('No item rows found on the packing list.');
+    return out;
+  }
+
+  /* ---------------- Merge CI + PL + config -> model ---------------- */
+  function lookup(map, key) { return map[(key || '').toUpperCase().trim()]; }
+
+  function buildModel(ci, pl, cfg, countries) {
+    var W = [];
+    var g = cfg.general, inv = cfg.invoice, it = cfg.item, ot = cfg.other, mp = cfg.maps;
+    function cc(nm) { var k = (nm || '').toUpperCase().replace(/\s+/g, ' ').trim(); return countries[k] || ''; }
+    var m = {};
+    m.invoiceNo = ci.invoiceNo; m.invoiceDateRaw = ci.invoiceDate; m.invoiceDate = fmtDate(ci.invoiceDate);
+    if (pl.invoiceNo && ci.invoiceNo && pl.invoiceNo !== ci.invoiceNo) W.push('Invoice number differs: CI ' + ci.invoiceNo + ' vs packing list ' + pl.invoiceNo + '. Check you uploaded matching documents.');
+
+    var modeKey = (ci.mode || '').toUpperCase();
+    m.transportMode = lookup(mp.mode, modeKey) || '';
+    if (!m.transportMode) W.push('Transport mode "' + ci.mode + '" has no code in the Mode table; GENERAL.TransportMode left blank.');
+
+    m.consigneeName = ci.consigneeName; m.consigneeAddress = ci.consigneeAddress;
+    m.consigneeCountry = cc(ci.consigneeCountryName);
+    if (!m.consigneeCountry) W.push('Consignee country "' + ci.consigneeCountryName + '" not recognised; enter the code.');
+    m.isBuyerOther = ci.hasBuyer ? 'Y' : 'N';
+    m.buyerName = ci.buyerName; m.buyerAddress = ci.buyerAddress; m.buyerCity = ci.buyerCity; m.buyerPin = ci.buyerPin;
+    m.buyerCountry = ci.hasBuyer ? cc(ci.buyerCountryName) : '';
+    if (ci.hasBuyer && !m.buyerCountry) W.push('Buyer country "' + ci.buyerCountryName + '" not recognised; enter the code.');
+
+    m.dischargePort = lookup(mp.ports, ci.portOfDischarge) || '';
+    if (!m.dischargePort) W.push('Port of discharge "' + ci.portOfDischarge + '" has no code in the Ports table. Add it there (UN/LOCODE style, e.g. GNCKY).');
+    m.dischargeCountry = cc(ci.finalDestCountryName) || cc(ci.finalDestination) || m.consigneeCountry;
+    m.destPort = m.dischargePort; m.destCountry = m.dischargeCountry;
+
+    var incoterm = (/^[A-Za-z]{3}/.exec(ci.delivery) || [''])[0].toUpperCase();
+    m.toi = lookup(mp.toi, incoterm) || '';
+    if (!m.toi) W.push('Delivery term "' + ci.delivery + '" has no TOI mapping; add it in the TOI table.');
+    var pm = /WITHIN\s+(\d+)\s+DAYS/i.exec(ci.paymentTerms || '');
+    m.paymentPeriod = pm ? ' ' + pm[1] : '';
+    if (!pm) W.push('Payment terms "' + ci.paymentTerms + '" are not of the form "WITHIN n DAYS"; Payment_Period left blank and Nature_of_Payment needs checking.');
+    m.natureOfPayment = inv.Nature_of_Payment;
+
+    m.currency = ci.currency; m.exchangeRate = num(ci.exchangeRate);
+    if (!m.currency || !m.exchangeRate) W.push('Exchange rate line ("1 USD = RS ...") not found on the CI.');
+
+    /* items: merge CI rows with PL weights (match by name, else by order) */
+    m.items = ci.items.map(function (row, idx) {
+      var plRow = null;
+      pl.rows.forEach(function (p) { if (!plRow && p.name && p.name.toUpperCase() === row.name.toUpperCase()) plRow = p; });
+      if (!plRow && pl.rows[idx] && pl.rows.length === ci.items.length) plRow = pl.rows[idx];
+      var desc = (row.heading ? row.heading + it.Desc_Suffix + ': ' : '') + row.name;
+      var basis = mp.hs[row.hsn] || '';
+      var unit = lookup(mp.units, row.unit) || '';
+      if (!unit) W.push('Item ' + row.sr + ': unit "' + row.unit + '" has no mapping in the Units table.');
+      if (!basis) W.push('Item ' + row.sr + ': HS ' + row.hsn + ' has no SQC rule. Pick WEIGHT or QTY in the HS rules table; the SQC quantity is left blank until you do.');
+      if (!plRow) W.push('Item ' + row.sr + ' ("' + row.name + '") not matched to a packing-list row; net weight is blank.');
+      return {
+        sr: row.sr, desc: desc, hsn: row.hsn, qty: num(row.qty), unit: unit, ciUnit: row.unit, price: num(row.rate), perUnit: num(it.Per_Unit_No),
+        netWeight: plRow ? plRow.nw : 0, basis: basis, igstRate: num(it.IGST_Rate), amount: num(row.amount)
+      };    });
+    m.freight = ci.freightTotal;
+    if (m.freight > 0) W.push('The CI shows freight of ' + fix(m.freight, 2) + '. The sample used FOB with zero freight, so check TOI, Invoice_Value and Freight columns by hand.');
+
+    var netSum = m.items.reduce(function (a, x) { return a + x.netWeight; }, 0);
+    m.packages = pl.packagesCount || 0;
+    m.gross = pl.totalGW; m.net = pl.totalNW || netSum;
+    if (pl.totalNW && Math.abs(pl.totalNW - netSum) > 0.005 && m.items.length) W.push('Packing-list net weight total (' + fix(pl.totalNW, 2) + ') differs from the sum of item net weights (' + fix(netSum, 2) + ').');
+    if (!m.packages) W.push('Package count not found on the packing list.');
+
+    var calcTotal = r2(m.items.reduce(function (a, x) { return a + x.qty * x.price / (x.perUnit || 1); }, 0));
+    m.productValue = calcTotal;
+    if (ci.invoiceTotal && Math.abs(calcTotal - ci.invoiceTotal) > 0.01) W.push('Computed invoice value ' + fix(calcTotal, 2) + ' differs from the CI total ' + fix(ci.invoiceTotal, 2) + '.');
+    m.marks = g.Marks_Template.replace('{inv}', ci.invoiceNo).replace('{date}', ci.invoiceDate);
+    m.endUse = (m.consigneeCountry || '') + it.End_Use_Suffix;
+    m.warnings = W;
+    return m;
+  }
+
+  /* ---------------- Workbook ---------------- */
+  /* opts.formulas: write live formulas for computed columns (cached values included) */
+  function buildWorkbook(model, cfg, XLSX, template, opts) {
+    opts = opts || {};
+    var F = !!opts.formulas;
+    var g = cfg.general, inv = cfg.invoice, it = cfg.item, ot = cfg.other;
+    var wb = XLSX.utils.book_new();
+    var sheets = {};
+    template.forEach(function (t) {
+      var ws = {}; var hdr = t[1];
+      hdr.forEach(function (h, c) { ws[XLSX.utils.encode_cell({ r: 0, c: c })] = { t: 's', v: h }; });
+      ws['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: 0, c: Math.max(hdr.length - 1, 0) } });
+      ws['!cols'] = hdr.map(function () { return { wch: 13 }; });
+      sheets[t[0]] = { ws: ws, hdr: hdr, rows: 1 };
+      XLSX.utils.book_append_sheet(wb, ws, t[0]);
+    });
+    function colIdx(sheet, name) { var i = sheets[sheet].hdr.indexOf(name); if (i < 0) throw new Error('Template column missing: ' + sheet + '.' + name); return i; }
+    function put(sheet, row, name, val, z) { /* row is 0-based data row (0 => Excel row 2) */
+      if (val === '' || val == null) return;
+      var S = sheets[sheet], c = colIdx(sheet, name), r = row + 1;
+      var cell = (typeof val === 'number') ? { t: 'n', v: val } : { t: 's', v: String(val) };
+      if (z) cell.z = z;
+      S.ws[XLSX.utils.encode_cell({ r: r, c: c })] = cell;
+      if (r + 1 > S.rows) S.rows = r + 1;
+    }
+    function putF(sheet, row, name, formula, cached, z) {
+      var S = sheets[sheet], c = colIdx(sheet, name), r = row + 1;
+      var cell = { t: typeof cached === 'number' ? 'n' : 's', v: cached, f: formula };
+      if (z) cell.z = z;
+      S.ws[XLSX.utils.encode_cell({ r: r, c: c })] = cell;
+      if (r + 1 > S.rows) S.rows = r + 1;
+    }
+    function col(sheet, name) { return XLSX.utils.encode_col(colIdx(sheet, name)); }
+
+    var n = model.items.length, last = n + 1;
+
+    /* GENERAL */
+    var G = 'GENERAL';
+    put(G, 0, 'TransportMode', model.transportMode);
+    put(G, 0, 'CustomHouseCode', g.CustomHouseCode);
+    put(G, 0, 'SB_Type', g.SB_Type);
+    put(G, 0, 'Loading_Port', g.Loading_Port);
+    put(G, 0, 'Exporter_Name', g.Exporter_Name);
+    put(G, 0, 'BranchName', g.BranchName);
+    put(G, 0, 'ExporterType', g.ExporterType);
+    put(G, 0, 'AD_Code', g.AD_Code);
+    put(G, 0, 'Consignee_name', model.consigneeName);
+    put(G, 0, 'Consignee_address', model.consigneeAddress);
+    put(G, 0, 'Consignee_Country_Code', model.consigneeCountry);
+    put(G, 0, 'IsBuyerOtherThanConsignee', model.isBuyerOther);
+    put(G, 0, 'Origin_Country_Code', g.Origin_Country_Code);
+    put(G, 0, 'Type_of_Shipment', g.Type_of_Shipment);
+    put(G, 0, 'Export_Under', g.Export_Under);
+    put(G, 0, 'Discharge_Port_Code', model.dischargePort);
+    put(G, 0, 'Discharge_Country_Code', model.dischargeCountry);
+    put(G, 0, 'Destination_Port_Code', model.destPort);
+    put(G, 0, 'Destination_Country_Code', model.destCountry);
+    put(G, 0, 'Nature_of_Cargo', g.Nature_of_Cargo);
+    put(G, 0, 'Total_Packages', String(model.packages));
+    put(G, 0, 'Package_Unit_Code', g.Package_Unit_Code);
+    put(G, 0, 'Loose_Packets', g.Loose_Packets);
+    put(G, 0, 'Gross_Weight', fix(model.gross, 3));
+    put(G, 0, 'Net_Weight', fix(model.net, 3));
+    put(G, 0, 'Weight_Unit_Code', g.Weight_Unit_Code);
+    put(G, 0, 'Origin_State_Code', g.Origin_State_Code);
+    put(G, 0, 'Marks_&_No.', model.marks);
+
+    /* INVOICES */
+    var I = 'INVOICES';
+    put(I, 0, 'InvSrNo', '1');
+    put(I, 0, 'Inv_No', model.invoiceNo);
+    put(I, 0, 'Date', model.invoiceDate);
+    put(I, 0, 'TOI', model.toi);
+    put(I, 0, 'Inv_Currency_Code', model.currency);
+    put(I, 0, 'Price_Includes_N_F_I_B', inv.Price_Includes_N_F_I_B);
+    put(I, 0, 'Taxable_value_for_IGST', inv.Taxable_value_for_IGST);
+    var cur = model.currency;
+    ['Freight_Currency_Code', 'Insurance_Currency_Code', 'Discount_Currency', 'Other_Deduction_Currency', 'Commission_Currency'].forEach(function (k) { put(I, 0, k, cur); });
+    put(I, 0, 'Freight_Percentage', '0.0000'); put(I, 0, 'Freight_Amount', fix(model.freight, 2));
+    put(I, 0, 'Insurance_Percentage', '0.0000'); put(I, 0, 'Insurance_Amount', '0.00');
+    put(I, 0, 'Discount_Percentage', '0.00'); put(I, 0, 'Discount_Amount', '0.00');
+    put(I, 0, 'Other_Deduction_Percentage', '0.00'); put(I, 0, 'Other_Deduction_Amount', '0.00');
+    put(I, 0, 'Commission_Percentage', '0.00'); put(I, 0, 'Commission_Amount', '0.00');
+    put(I, 0, 'Buyer_Name', model.buyerName);
+    put(I, 0, 'Buyer_Address', model.buyerAddress);
+    put(I, 0, 'Buyer_City', model.buyerCity);
+    put(I, 0, 'Buyer_PIN', model.buyerPin);
+    put(I, 0, 'Buyer_Country_Code', model.buyerCountry);
+    put(I, 0, 'Nature_of_Payment', model.natureOfPayment);
+    put(I, 0, 'Payment_Period', model.paymentPeriod);
+
+    /* ITEMS */
+    var T = 'ITEMS';
+    var rate = model.exchangeRate;
+    var curSheet = 'EXCHANGE_RATE';
+    var totalProduct = 0;
+    model.items.forEach(function (x, k) {
+      var er = k + 2; /* excel row */
+      var taxable = r2(x.qty * x.price / (x.perUnit || 1) * rate);
+      var igst = r2(taxable * x.igstRate / 100);
+      totalProduct += x.qty * x.price / (x.perUnit || 1);
+      put(T, k, 'InvSrNo', '1');
+      put(T, k, 'ItemSrNo', String(k + 1));
+      put(T, k, 'Product_Desc', x.desc);
+      put(T, k, 'RITC', x.hsn);
+      put(T, k, 'Quantity_Unit_Code', x.unit);
+      put(T, k, 'Per_Unit_No.', String(x.perUnit));
+      put(T, k, 'Exim_Scheme_Code', it.Exim_Scheme_Code);
+      put(T, k, 'PMV', it.PMV);
+      put(T, k, 'PMV_Currency_Code', it.PMV_Currency_Code);
+      put(T, k, 'IGST_Pay_Status', it.IGST_Pay_Status);
+      put(T, k, 'CompCessRate', it.CompCessRate);
+      put(T, k, 'Is_Reward_Item', it.Is_Reward_Item);
+      put(T, k, 'End_Use_Code', model.endUse);
+      put(T, k, 'Origin_District_Code', it.Origin_District_Code);
+      put(T, k, 'PTAFTA_Code', it.PTAFTA_Code);
+      put(T, k, 'Accessories_Status', it.Accessories_Status);
+      put(T, k, 'DBK_Quantity', it.DBK_Quantity);
+      put(T, k, 'TP_Exporter_BrS_No.', it.TP_Exporter_BrS_No);
+      put(T, k, 'RoDTEP_Status', it.RoDTEP_Status);
+      /* SQC quantity */
+      var sqcUnit = x.basis === 'WEIGHT' ? it.SQC_Weight_Unit : (x.basis === 'QTY' ? x.unit : '');
+      var sqcQty = x.basis === 'WEIGHT' ? x.netWeight : (x.basis === 'QTY' ? x.qty : null);
+      if (F) {
+        put(T, k, 'Quantity', x.qty, '0.000');
+        put(T, k, 'Unit_Price', x.price, '0.00');
+        put(T, k, 'Per_Unit_No.', x.perUnit, '0');
+        put(T, k, 'IGST_Rate', x.igstRate, '0.00');
+        var qC = col(T, 'Quantity'), pC = col(T, 'Unit_Price'), uC = col(T, 'Per_Unit_No.'), tC = col(T, 'IGST_Taxable_Amt'), rC = col(T, 'IGST_Rate'), sC = col(T, 'SQC_Quantity');
+        putF(T, k, 'IGST_Taxable_Amt', 'ROUND(' + qC + er + '*' + pC + er + '/' + uC + er + '*INDEX(' + curSheet + '!$B$2:$B$9,MATCH(INVOICES!$' + col(I, 'Inv_Currency_Code') + '$2,' + curSheet + '!$A$2:$A$9,0)),2)', taxable, '0.00');
+        putF(T, k, 'IGST_Amount', 'ROUND(' + tC + er + '*' + rC + er + '/100,2)', igst, '0.00');
+        if (x.basis === 'QTY') putF(T, k, 'SQC_Quantity', qC + er, sqcQty);
+        else if (sqcQty !== null) put(T, k, 'SQC_Quantity', sqcQty);
+        put(T, k, 'SQC_Quantity_Unit_Code', sqcUnit);
+        if (sqcQty !== null) putF(T, k, 'RoDTEP_Quantity', sC + er, sqcQty);
+        if (sqcUnit) putF(T, k, 'RoDTEP_Quantity_Unit_Code', col(T, 'SQC_Quantity_Unit_Code') + er, sqcUnit);
+      } else {
+        put(T, k, 'Quantity', fix(x.qty, 3));
+        put(T, k, 'Unit_Price', fix(x.price, 2));
+        put(T, k, 'IGST_Rate', fix(x.igstRate, 2));
+        put(T, k, 'IGST_Taxable_Amt', fix(taxable, 2));
+        put(T, k, 'IGST_Amount', fix(igst, 2));
+        if (sqcQty !== null) put(T, k, 'SQC_Quantity', sqcQty);
+        put(T, k, 'SQC_Quantity_Unit_Code', sqcUnit);
+        if (sqcQty !== null) put(T, k, 'RoDTEP_Quantity', sqcQty);
+        put(T, k, 'RoDTEP_Quantity_Unit_Code', sqcUnit);
+      }
+      /* STATEMENT */
+      put('STATEMENT', k, 'Inv_SrNo', '1');
+      put('STATEMENT', k, 'Item_SrNo', String(k + 1));
+      put('STATEMENT', k, 'StatementType', it.StatementType);
+      put('STATEMENT', k, 'StatementCode', it.StatementCode);
+    });
+    totalProduct = r2(totalProduct);
+    if (F) {
+      var eC = col(T, 'Quantity'), gC = col(T, 'Unit_Price'), hC = col(T, 'Per_Unit_No.');
+      var rng = function (c) { return T + '!$' + c + '$2:$' + c + '$' + last; };
+      putF(I, 0, 'Product_Value', 'ROUND(SUMPRODUCT(' + rng(eC) + ',' + rng(gC) + '/' + rng(hC) + '),2)', totalProduct, '0.00');
+      put(I, 0, 'Packing_FOB_Amount', 0, '0.00');
+      putF(I, 0, 'Invoice_Value', 'ROUND(' + col(I, 'Product_Value') + '2+' + col(I, 'Packing_FOB_Amount') + '2,2)', totalProduct, '0.00');
+    } else {
+      put(I, 0, 'Product_Value', fix(totalProduct, 2));
+      put(I, 0, 'Packing_FOB_Amount', '0.00');
+      put(I, 0, 'Invoice_Value', fix(totalProduct, 2));
+    }
+
+    /* ANNEXURE_C1, STUFFING_INFO */
+    var A = 'ANNEXURE_C1', f = ot.Annexure_Filler;
+    put(A, 0, 'IEC_of_EOU', ot.IEC_of_EOU); put(A, 0, 'BranchSrNo', '0');
+    put(A, 0, 'Examination_Date', model.invoiceDate);
+    ['Examining_Officer', 'Examining_Officer_Designation', 'Supervising_Officer', 'Supervising_Officer_Designation', 'Commissionerate', 'Division', 'Range'].forEach(function (k) { put(A, 0, k, f); });
+    put(A, 0, 'Verified_by_Examining_Officer', ot.Verified_by_Examining_Officer);
+    put(A, 0, 'Seal_No', f);
+    put('STUFFING_INFO', 0, 'Goods_Stuffed_at', ot.Goods_Stuffed_at);
+    put('STUFFING_INFO', 0, 'Is_Sample_Accompanied', ot.Is_Sample_Accompanied);
+    put('STUFFING_INFO', 0, 'Seal_Type', ot.Seal_Type);
+
+    /* EXCHANGE_RATE */
+    var E = 'EXCHANGE_RATE';
+    if (F) {
+      put(E, 0, 'CURRENCY_CODE', 'INR'); put(E, 0, 'EXCHANGE_RATE', 1, '0.000000');
+      put(E, 1, 'CURRENCY_CODE', model.currency); put(E, 1, 'EXCHANGE_RATE', model.exchangeRate, '0.00000');
+    } else {
+      put(E, 0, 'CURRENCY_CODE', 'INR'); put(E, 0, 'EXCHANGE_RATE', '1.000000');
+      put(E, 1, 'CURRENCY_CODE', model.currency); put(E, 1, 'EXCHANGE_RATE', ' ' + fix(model.exchangeRate, 5));
+    }
+
+    /* fix refs */
+    Object.keys(sheets).forEach(function (nm) {
+      var S = sheets[nm];
+      S.ws['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: Math.max(S.rows - 1, 0), c: S.hdr.length - 1 } });
+    });
+    return wb;
+  }
+
+
+  /* ---------------- Main route: ASB's Excel -> ERP Excel ---------------- */
+  function cellStr(c) { return c == null || c.v == null ? '' : String(c.v); }
+  function decimalsOf(c) { var m = /\.(\d+)\s*$/.exec(cellStr(c)); return m ? m[1].length : 0; }
+  function zFor(c) { var d = decimalsOf(c); return d ? '0.' + new Array(d + 1).join('0') : '0'; }
+  function pnum(c) { var n = parseFloat(cellStr(c).replace(/,/g, '').trim()); return isNaN(n) ? null : n; }
+
+  function transformExcel(wb, XLSX, template, cfg, opts) {
+    opts = opts || {};
+    var enc = XLSX.utils.encode_cell, dec = XLSX.utils.decode_range, encC = XLSX.utils.encode_col;
+    var issues = [], changes = [], notes = [], rowCounts = [];
+    function hdrIdx(ws, name) { var r = dec(ws['!ref']); for (var c = 0; c <= r.e.c; c++) { var h = ws[enc({ r: 0, c: c })]; if (h && String(h.v) === name) return c; } return -1; }
+
+    /* 1. structure check against the 26-sheet template */
+    template.forEach(function (t) {
+      var ws = wb.Sheets[t[0]];
+      if (!ws) { issues.push('Sheet "' + t[0] + '" is missing.'); return; }
+      t[1].forEach(function (h, c) {
+        var cell = ws[enc({ r: 0, c: c })], v = cell ? String(cell.v) : '';
+        if (v !== h) issues.push('Sheet ' + t[0] + ', column ' + XLSX.utils.encode_col(c) + ': expected "' + h + '" but found "' + v + '".');
+      });
+      var rg = dec(ws['!ref'] || 'A1'); rowCounts.push([t[0], rg.e.r]);
+    });
+    wb.SheetNames.forEach(function (n) { if (!template.some(function (t) { return t[0] === n; })) notes.push('Extra sheet "' + n + '" in ASB’s file; kept as is.'); });
+
+    /* 2. rules */
+    (cfg.rules || []).forEach(function (rule) {
+      var ws = wb.Sheets[rule.sheet]; if (!ws || !rule.find) return;
+      var ci = hdrIdx(ws, rule.column); if (ci < 0) { notes.push('Rule on ' + rule.sheet + '.' + rule.column + ': column not found.'); return; }
+      var hit = 0, rg = dec(ws['!ref']);
+      for (var r = 1; r <= rg.e.r; r++) {
+        var addr = enc({ r: r, c: ci }), cell = ws[addr]; if (!cell || cell.t !== 's') continue;
+        var val = cell.v, f = rule.find.trim().toUpperCase(), nv = null;
+        if (rule.match === 'contains') {
+          var idx = val.toUpperCase().indexOf(f);
+          if (idx >= 0) nv = val.slice(0, idx) + rule.replace + val.slice(idx + f.length);        } else if (val.trim().toUpperCase() === f) nv = rule.replace;
+        if (nv !== null && nv !== val) { changes.push({ sheet: rule.sheet, addr: addr, column: rule.column, before: val, after: nv }); cell.v = nv; hit++; }
+      }
+      if (!hit) notes.push('Rule "' + rule.find + '" → "' + rule.replace + '" (' + rule.sheet + '.' + rule.column + ') matched nothing in this file.');
+    });
+
+    /* 3. live formulas for calculated columns, only where ASB's own numbers agree */
+    if (opts.formulas) {
+      try { convertFormulas(); } catch (e) { notes.push('Live formulas skipped: ' + e.message); }
+    }
+    function convertFormulas() {
+      var I = wb.Sheets.INVOICES, T = wb.Sheets.ITEMS, E = wb.Sheets.EXCHANGE_RATE;
+      if (!I || !T || !E) throw new Error('INVOICES, ITEMS or EXCHANGE_RATE sheet missing.');
+      function lastRow(ws, col) { var rg = dec(ws['!ref']), last = 0; for (var r = 1; r <= rg.e.r; r++) { if (ws[enc({ r: r, c: col })] && cellStr(ws[enc({ r: r, c: col })]) !== '') last = r; } return last; }
+      var iA = hdrIdx(I, 'InvSrNo'), tA = hdrIdx(T, 'InvSrNo'), eA = hdrIdx(E, 'CURRENCY_CODE');
+      var lastI = lastRow(I, iA), lastT = lastRow(T, tA), lastE = lastRow(E, eA);
+      if (!lastI || !lastT || !lastE) throw new Error('no invoice, item or exchange-rate rows.');
+      var X = {
+        iNo: iA, iCur: hdrIdx(I, 'Inv_Currency_Code'), iVal: hdrIdx(I, 'Invoice_Value'), iProd: hdrIdx(I, 'Product_Value'), iPack: hdrIdx(I, 'Packing_FOB_Amount'),
+        tQ: hdrIdx(T, 'Quantity'), tP: hdrIdx(T, 'Unit_Price'), tH: hdrIdx(T, 'Per_Unit_No.'), tTax: hdrIdx(T, 'IGST_Taxable_Amt'), tRate: hdrIdx(T, 'IGST_Rate'), tAmt: hdrIdx(T, 'IGST_Amount'),
+        tSqc: hdrIdx(T, 'SQC_Quantity'), tSqcU: hdrIdx(T, 'SQC_Quantity_Unit_Code'), tRq: hdrIdx(T, 'RoDTEP_Quantity'), tRu: hdrIdx(T, 'RoDTEP_Quantity_Unit_Code'),
+        eCode: eA, eRate: hdrIdx(E, 'EXCHANGE_RATE')
+      };
+      Object.keys(X).forEach(function (k) { if (X[k] < 0) throw new Error('column for ' + k + ' not found.'); });
+      var L = function (c) { return encC(c); };
+      /* currency -> rate (numbers read before anything is changed) */
+      var rates = {};
+      for (var r = 1; r <= lastE; r++) { var code = cellStr(E[enc({ r: r, c: X.eCode })]).trim(), rt = pnum(E[enc({ r: r, c: X.eRate })]); if (code) { if (rt === null) throw new Error('exchange rate for ' + code + ' is not a number.'); rates[code] = rt; } }
+      var invCur = {}, invRows = {};
+      for (r = 1; r <= lastI; r++) { var k = cellStr(I[enc({ r: r, c: X.iNo })]); invCur[k] = cellStr(I[enc({ r: r, c: X.iCur })]).trim(); invRows[k] = r; }
+      /* expected values from ASB's own numbers */
+      var items = [], okTax = true, okAmt = true, okRq = true;
+      for (r = 1; r <= lastT; r++) {
+        var inv = cellStr(T[enc({ r: r, c: tA })]), q = pnum(T[enc({ r: r, c: X.tQ })]), p = pnum(T[enc({ r: r, c: X.tP })]), h = pnum(T[enc({ r: r, c: X.tH })]), tax = pnum(T[enc({ r: r, c: X.tTax })]), rate = pnum(T[enc({ r: r, c: X.tRate })]), amt = pnum(T[enc({ r: r, c: X.tAmt })]);
+        if (q === null || p === null || !h) throw new Error('item row ' + (r + 1) + ' has a non-numeric quantity, price or per-unit.');
+        var fx = rates[invCur[inv]];
+        if (fx === undefined) throw new Error('no exchange rate for currency "' + invCur[inv] + '".');
+        var expTax = r2(q * p / h * fx);
+        if (tax === null || Math.abs(expTax - tax) > 0.005) okTax = false;
+        var baseTax = okTax ? expTax : tax;
+        var expAmt = rate === null ? null : r2(baseTax * rate / 100);
+        if (amt === null || expAmt === null || Math.abs(expAmt - amt) > 0.005) okAmt = false;
+        var sq = pnum(T[enc({ r: r, c: X.tSqc })]), rq = pnum(T[enc({ r: r, c: X.tRq })]);
+        if (sq === null || rq === null || sq !== rq || cellStr(T[enc({ r: r, c: X.tSqcU })]) !== cellStr(T[enc({ r: r, c: X.tRu })])) okRq = false;
+        items.push({ r: r, inv: inv, q: q, p: p, h: h, expTax: expTax, tax: tax, rate: rate, expAmt: expAmt, amt: amt, sq: sq });
+      }
+      var prodExp = {}, okProd = true, okInv = true;
+      items.forEach(function (it) { prodExp[it.inv] = (prodExp[it.inv] || 0) + it.q * it.p / it.h; });
+      for (r = 1; r <= lastI; r++) {
+        var key = cellStr(I[enc({ r: r, c: X.iNo })]), pv = pnum(I[enc({ r: r, c: X.iProd })]), iv = pnum(I[enc({ r: r, c: X.iVal })]), pk = pnum(I[enc({ r: r, c: X.iPack })]) || 0;
+        var ep = r2(prodExp[key] || 0);
+        if (pv === null || Math.abs(ep - pv) > 0.005) okProd = false;
+        if (iv === null || Math.abs(r2((okProd ? ep : pv) + pk) - iv) > 0.005) okInv = false;
+      }
+      /* make the input cells numeric (same displayed digits) */
+      function numify(ws, col, rows, z) { rows.forEach(function (rr) { var a = enc({ r: rr, c: col }), c = ws[a]; if (c && c.t === 's') { var n = pnum(c); if (n !== null) { c.t = 'n'; c.v = n; c.z = z || zFor(c); } } }); }
+      var tRows = items.map(function (x) { return x.r; }), iRows = []; for (r = 1; r <= lastI; r++) iRows.push(r);
+      numify(T, X.tQ, tRows); numify(T, X.tP, tRows); numify(T, X.tH, tRows); numify(T, X.tRate, tRows); numify(I, X.iPack, iRows);
+      for (r = 1; r <= lastE; r++) numify(E, X.eRate, [r]);
+      var n = lastT + 1, m = lastI + 1, ne = lastE + 1;
+      var rngT = function (c) { return 'ITEMS!$' + L(c) + '$2:$' + L(c) + '$' + n; };
+      var done = [];
+      function setF(ws, rr, col, f, v, z) { var cell = { t: typeof v === 'number' ? 'n' : 's', v: v, f: f }; if (z) cell.z = z; ws[enc({ r: rr, c: col })] = cell; }
+      if (okTax) { items.forEach(function (it) { var e = it.r + 1; setF(T, it.r, X.tTax, 'ROUND(' + L(X.tQ) + e + '*' + L(X.tP) + e + '/' + L(X.tH) + e + '*INDEX(EXCHANGE_RATE!$' + L(X.eRate) + '$2:$' + L(X.eRate) + '$' + ne + ',MATCH(INDEX(INVOICES!$' + L(X.iCur) + '$2:$' + L(X.iCur) + '$' + m + ',MATCH($' + L(tA) + e + ',INVOICES!$' + L(iA) + '$2:$' + L(iA) + '$' + m + ',0)),EXCHANGE_RATE!$' + L(X.eCode) + '$2:$' + L(X.eCode) + '$' + ne + ',0)),2)', it.expTax, '0.00'); }); done.push('IGST_Taxable_Amt'); }
+      else notes.push('IGST_Taxable_Amt kept as ASB sent it: it is not quantity × price × exchange rate on every row.');
+      if (okAmt) { items.forEach(function (it) { var e = it.r + 1; setF(T, it.r, X.tAmt, 'ROUND(' + L(X.tTax) + e + '*' + L(X.tRate) + e + '/100,2)', it.expAmt, '0.00'); }); done.push('IGST_Amount'); }
+      else notes.push('IGST_Amount kept as ASB sent it: it is not taxable amount × IGST rate on every row.');
+      if (okRq) { items.forEach(function (it) { var e = it.r + 1; setF(T, it.r, X.tRq, L(X.tSqc) + e, it.sq); setF(T, it.r, X.tRu, L(X.tSqcU) + e, cellStr(T[enc({ r: it.r, c: X.tSqcU })])); }); done.push('RoDTEP_Quantity and unit'); }
+      else notes.push('RoDTEP quantity kept as ASB sent it: it differs from SQC quantity on some row.');
+      if (okProd) { for (r = 1; r <= lastI; r++) { var kk = cellStr(I[enc({ r: r, c: X.iNo })]), e2 = r + 1; setF(I, r, X.iProd, 'ROUND(SUMPRODUCT((' + rngT(tA) + '=$' + L(iA) + e2 + ')*' + rngT(X.tQ) + '*' + rngT(X.tP) + '/' + rngT(X.tH) + '),2)', r2(prodExp[kk] || 0), '0.00'); } done.push('Product_Value'); }
+      else notes.push('Product_Value kept as ASB sent it: it is not the sum of quantity × price on the item rows.');
+      if (okInv) { for (r = 1; r <= lastI; r++) { var e3 = r + 1; setF(I, r, X.iVal, 'ROUND(' + L(X.iProd) + e3 + '+' + L(X.iPack) + e3 + ',2)', pnum(I[enc({ r: r, c: X.iVal })]), '0.00'); } done.push('Invoice_Value'); }
+      else notes.push('Invoice_Value kept as ASB sent it: it is not product value plus packing on every invoice.');
+      notes.unshift(done.length ? 'Live formulas written for: ' + done.join(', ') + '.' : 'No column could be turned into a formula safely.');
+    }
+
+    var firstInv = '';
+    try { var iw = wb.Sheets.INVOICES, ic = hdrIdx(iw, 'Inv_No'); firstInv = cellStr(iw[enc({ r: 1, c: ic })]).trim(); } catch (e) {}
+    return { wb: wb, issues: issues, changes: changes, notes: notes, rowCounts: rowCounts, invoiceNo: firstInv };
+  }
+
+  return { transformExcel: transformExcel, DEFAULT_CONFIG: DEFAULT_CONFIG, parseCI: parseCI, parsePL: parsePL, buildModel: buildModel, buildWorkbook: buildWorkbook, toLines: toLines, fmtDate: fmtDate };
+})();
+
+
+</script>
+<script>
+var COUNTRIES = {"AFGHANISTAN":"AF","ALBANIA":"AL","ALGERIA":"DZ","AMERICAN SAMOA":"AS","ANDORRA":"AD","ANGOLA":"AO","ANGUILLA":"AI","ANTARCTICA":"AQ","ANTIGUA AND BARBUDA":"AG","ARAB REPUBLIC OF EGYPT":"EG","ARGENTINA":"AR","ARGENTINE REPUBLIC":"AR","ARMENIA":"AM","ARUBA":"AW","AUSTRALIA":"AU","AUSTRIA":"AT","AZERBAIJAN":"AZ","BAHAMAS":"BS","BAHRAIN":"BH","BANGLADESH":"BD","BARBADOS":"BB","BELARUS":"BY","BELGIUM":"BE","BELIZE":"BZ","BENIN":"BJ","BERMUDA":"BM","BHUTAN":"BT","BOLIVARIAN REPUBLIC OF VENEZUELA":"VE","BOLIVIA":"BO","BOLIVIA, PLURINATIONAL STATE OF":"BO","BONAIRE, SINT EUSTATIUS AND SABA":"BQ","BOSNIA AND HERZEGOVINA":"BA","BOTSWANA":"BW","BOUVET ISLAND":"BV","BRAZIL":"BR","BRITISH INDIAN OCEAN TERRITORY":"IO","BRITISH VIRGIN ISLANDS":"VG","BRUNEI":"BN","BRUNEI DARUSSALAM":"BN","BULGARIA":"BG","BURKINA FASO":"BF","BURMA":"MM","BURUNDI":"BI","CABO VERDE":"CV","CAMBODIA":"KH","CAMEROON":"CM","CANADA":"CA","CAYMAN ISLANDS":"KY","CENTRAL AFRICAN REPUBLIC":"CF","CHAD":"TD","CHILE":"CL","CHINA":"CN","CHRISTMAS ISLAND":"CX","COCOS (KEELING) ISLANDS":"CC","COLOMBIA":"CO","COMMONWEALTH OF DOMINICA":"DM","COMMONWEALTH OF THE BAHAMAS":"BS","COMMONWEALTH OF THE NORTHERN MARIANA ISLANDS":"MP","COMOROS":"KM","CONGO":"CG","CONGO, DEMOCRATIC REPUBLIC OF THE":"CD","CONGO, THE DEMOCRATIC REPUBLIC OF THE":"CD","COOK ISLANDS":"CK","COSTA RICA":"CR","COTE D'IVOIRE":"CI","CROATIA":"HR","CUBA":"CU","CURA\u00c7AO":"CW","CYPRUS":"CY","CZECH REPUBLIC":"CZ","CZECHIA":"CZ","C\u00d4TE D'IVOIRE":"CI","D R CONGO":"CD","DEMOCRATIC PEOPLE'S REPUBLIC OF KOREA":"KP","DEMOCRATIC REPUBLIC OF CONGO":"CD","DEMOCRATIC REPUBLIC OF SAO TOME AND PRINCIPE":"ST","DEMOCRATIC REPUBLIC OF TIMOR-LESTE":"TL","DEMOCRATIC SOCIALIST REPUBLIC OF SRI LANKA":"LK","DENMARK":"DK","DJIBOUTI":"DJ","DOMINICA":"DM","DOMINICAN REPUBLIC":"DO","DR CONGO":"CD","EAST TIMOR":"TL","EASTERN REPUBLIC OF URUGUAY":"UY","ECUADOR":"EC","EGYPT":"EG","EL SALVADOR":"SV","ENGLAND":"GB","EQUATORIAL GUINEA":"GQ","ERITREA":"ER","ESTONIA":"EE","ESWATINI":"SZ","ETHIOPIA":"ET","FALKLAND ISLANDS (MALVINAS)":"FK","FAROE ISLANDS":"FO","FEDERAL DEMOCRATIC REPUBLIC OF ETHIOPIA":"ET","FEDERAL DEMOCRATIC REPUBLIC OF NEPAL":"NP","FEDERAL REPUBLIC OF GERMANY":"DE","FEDERAL REPUBLIC OF NIGERIA":"NG","FEDERAL REPUBLIC OF SOMALIA":"SO","FEDERATED STATES OF MICRONESIA":"FM","FEDERATIVE REPUBLIC OF BRAZIL":"BR","FIJI":"FJ","FINLAND":"FI","FRANCE":"FR","FRENCH GUIANA":"GF","FRENCH POLYNESIA":"PF","FRENCH REPUBLIC":"FR","FRENCH SOUTHERN TERRITORIES":"TF","GABON":"GA","GABONESE REPUBLIC":"GA","GAMBIA":"GM","GEORGIA":"GE","GERMANY":"DE","GHANA":"GH","GIBRALTAR":"GI","GRAND DUCHY OF LUXEMBOURG":"LU","GREECE":"GR","GREENLAND":"GL","GRENADA":"GD","GUADELOUPE":"GP","GUAM":"GU","GUATEMALA":"GT","GUERNSEY":"GG","GUINEA":"GN","GUINEA BISSAU":"GW","GUINEA-BISSAU":"GW","GUYANA":"GY","HAITI":"HT","HASHEMITE KINGDOM OF JORDAN":"JO","HEARD ISLAND AND MCDONALD ISLANDS":"HM","HELLENIC REPUBLIC":"GR","HOLLAND":"NL","HOLY SEE (VATICAN CITY STATE)":"VA","HONDURAS":"HN","HONG KONG":"HK","HONG KONG SPECIAL ADMINISTRATIVE REGION OF CHINA":"HK","HUNGARY":"HU","ICELAND":"IS","INDEPENDENT STATE OF PAPUA NEW GUINEA":"PG","INDEPENDENT STATE OF SAMOA":"WS","INDIA":"IN","INDONESIA":"ID","IRAN":"IR","IRAN, ISLAMIC REPUBLIC OF":"IR","IRAQ":"IQ","IRELAND":"IE","ISLAMIC REPUBLIC OF AFGHANISTAN":"AF","ISLAMIC REPUBLIC OF IRAN":"IR","ISLAMIC REPUBLIC OF MAURITANIA":"MR","ISLAMIC REPUBLIC OF PAKISTAN":"PK","ISLE OF MAN":"IM","ISRAEL":"IL","ITALIAN REPUBLIC":"IT","ITALY":"IT","IVORY COAST":"CI","JAMAICA":"JM","JAPAN":"JP","JERSEY":"JE","JORDAN":"JO","KAZAKHSTAN":"KZ","KENYA":"KE","KINGDOM OF BAHRAIN":"BH","KINGDOM OF BELGIUM":"BE","KINGDOM OF BHUTAN":"BT","KINGDOM OF CAMBODIA":"KH","KINGDOM OF DENMARK":"DK","KINGDOM OF ESWATINI":"SZ","KINGDOM OF LESOTHO":"LS","KINGDOM OF MOROCCO":"MA","KINGDOM OF NORWAY":"NO","KINGDOM OF SAUDI ARABIA":"SA","KINGDOM OF SPAIN":"ES","KINGDOM OF SWEDEN":"SE","KINGDOM OF THAILAND":"TH","KINGDOM OF THE NETHERLANDS":"NL","KINGDOM OF TONGA":"TO","KIRIBATI":"KI","KOREA":"KR","KOREA, DEMOCRATIC PEOPLE'S REPUBLIC OF":"KP","KOREA, REPUBLIC OF":"KR","KUWAIT":"KW","KYRGYZ REPUBLIC":"KG","KYRGYZSTAN":"KG","LAO PEOPLE'S DEMOCRATIC REPUBLIC":"LA","LAOS":"LA","LATVIA":"LV","LEBANESE REPUBLIC":"LB","LEBANON":"LB","LESOTHO":"LS","LIBERIA":"LR","LIBYA":"LY","LIECHTENSTEIN":"LI","LITHUANIA":"LT","LUXEMBOURG":"LU","MACAO":"MO","MACAO SPECIAL ADMINISTRATIVE REGION OF CHINA":"MO","MACAU":"MO","MADAGASCAR":"MG","MALAWI":"MW","MALAYSIA":"MY","MALDIVES":"MV","MALI":"ML","MALTA":"MT","MARSHALL ISLANDS":"MH","MARTINIQUE":"MQ","MAURITANIA":"MR","MAURITIUS":"MU","MAYOTTE":"YT","MEXICO":"MX","MICRONESIA, FEDERATED STATES OF":"FM","MOLDOVA":"MD","MOLDOVA, REPUBLIC OF":"MD","MONACO":"MC","MONGOLIA":"MN","MONTENEGRO":"ME","MONTSERRAT":"MS","MOROCCO":"MA","MOZAMBIQUE":"MZ","MYANMAR":"MM","NAMIBIA":"NA","NAURU":"NR","NEPAL":"NP","NETHERLANDS":"NL","NEW CALEDONIA":"NC","NEW ZEALAND":"NZ","NICARAGUA":"NI","NIGER":"NE","NIGERIA":"NG","NIUE":"NU","NORFOLK ISLAND":"NF","NORTH KOREA":"KP","NORTH MACEDONIA":"MK","NORTHERN MARIANA ISLANDS":"MP","NORWAY":"NO","OMAN":"OM","PAKISTAN":"PK","PALAU":"PW","PALESTINE":"PS","PALESTINE, STATE OF":"PS","PANAMA":"PA","PAPUA NEW GUINEA":"PG","PARAGUAY":"PY","PEOPLE'S DEMOCRATIC REPUBLIC OF ALGERIA":"DZ","PEOPLE'S REPUBLIC OF BANGLADESH":"BD","PEOPLE'S REPUBLIC OF CHINA":"CN","PERU":"PE","PHILIPPINES":"PH","PITCAIRN":"PN","PLURINATIONAL STATE OF BOLIVIA":"BO","POLAND":"PL","PORTUGAL":"PT","PORTUGUESE REPUBLIC":"PT","PRINCIPALITY OF ANDORRA":"AD","PRINCIPALITY OF LIECHTENSTEIN":"LI","PRINCIPALITY OF MONACO":"MC","PUERTO RICO":"PR","QATAR":"QA","REPUBLIC OF ALBANIA":"AL","REPUBLIC OF ANGOLA":"AO","REPUBLIC OF ARMENIA":"AM","REPUBLIC OF AUSTRIA":"AT","REPUBLIC OF AZERBAIJAN":"AZ","REPUBLIC OF BELARUS":"BY","REPUBLIC OF BENIN":"BJ","REPUBLIC OF BOSNIA AND HERZEGOVINA":"BA","REPUBLIC OF BOTSWANA":"BW","REPUBLIC OF BULGARIA":"BG","REPUBLIC OF BURUNDI":"BI","REPUBLIC OF CABO VERDE":"CV","REPUBLIC OF CAMEROON":"CM","REPUBLIC OF CHAD":"TD","REPUBLIC OF CHILE":"CL","REPUBLIC OF COLOMBIA":"CO","REPUBLIC OF CONGO":"CG","REPUBLIC OF COSTA RICA":"CR","REPUBLIC OF CROATIA":"HR","REPUBLIC OF CUBA":"CU","REPUBLIC OF CYPRUS":"CY","REPUBLIC OF C\u00d4TE D'IVOIRE":"CI","REPUBLIC OF DJIBOUTI":"DJ","REPUBLIC OF ECUADOR":"EC","REPUBLIC OF EL SALVADOR":"SV","REPUBLIC OF EQUATORIAL GUINEA":"GQ","REPUBLIC OF ESTONIA":"EE","REPUBLIC OF FIJI":"FJ","REPUBLIC OF FINLAND":"FI","REPUBLIC OF GHANA":"GH","REPUBLIC OF GUATEMALA":"GT","REPUBLIC OF GUINEA":"GN","REPUBLIC OF GUINEA-BISSAU":"GW","REPUBLIC OF GUYANA":"GY","REPUBLIC OF HAITI":"HT","REPUBLIC OF HONDURAS":"HN","REPUBLIC OF ICELAND":"IS","REPUBLIC OF INDIA":"IN","REPUBLIC OF INDONESIA":"ID","REPUBLIC OF IRAQ":"IQ","REPUBLIC OF KAZAKHSTAN":"KZ","REPUBLIC OF KENYA":"KE","REPUBLIC OF KIRIBATI":"KI","REPUBLIC OF KOREA":"KR","REPUBLIC OF LATVIA":"LV","REPUBLIC OF LIBERIA":"LR","REPUBLIC OF LITHUANIA":"LT","REPUBLIC OF MADAGASCAR":"MG","REPUBLIC OF MALAWI":"MW","REPUBLIC OF MALDIVES":"MV","REPUBLIC OF MALI":"ML","REPUBLIC OF MALTA":"MT","REPUBLIC OF MAURITIUS":"MU","REPUBLIC OF MOLDOVA":"MD","REPUBLIC OF MOZAMBIQUE":"MZ","REPUBLIC OF MYANMAR":"MM","REPUBLIC OF NAMIBIA":"NA","REPUBLIC OF NAURU":"NR","REPUBLIC OF NICARAGUA":"NI","REPUBLIC OF NORTH MACEDONIA":"MK","REPUBLIC OF PALAU":"PW","REPUBLIC OF PANAMA":"PA","REPUBLIC OF PARAGUAY":"PY","REPUBLIC OF PERU":"PE","REPUBLIC OF POLAND":"PL","REPUBLIC OF SAN MARINO":"SM","REPUBLIC OF SENEGAL":"SN","REPUBLIC OF SERBIA":"RS","REPUBLIC OF SEYCHELLES":"SC","REPUBLIC OF SIERRA LEONE":"SL","REPUBLIC OF SINGAPORE":"SG","REPUBLIC OF SLOVENIA":"SI","REPUBLIC OF SOUTH AFRICA":"ZA","REPUBLIC OF SOUTH SUDAN":"SS","REPUBLIC OF SURINAME":"SR","REPUBLIC OF TAJIKISTAN":"TJ","REPUBLIC OF THE CONGO":"CG","REPUBLIC OF THE GAMBIA":"GM","REPUBLIC OF THE MARSHALL ISLANDS":"MH","REPUBLIC OF THE NIGER":"NE","REPUBLIC OF THE PHILIPPINES":"PH","REPUBLIC OF THE SUDAN":"SD","REPUBLIC OF TRINIDAD AND TOBAGO":"TT","REPUBLIC OF TUNISIA":"TN","REPUBLIC OF T\u00dcRKIYE":"TR","REPUBLIC OF UGANDA":"UG","REPUBLIC OF UZBEKISTAN":"UZ","REPUBLIC OF VANUATU":"VU","REPUBLIC OF YEMEN":"YE","REPUBLIC OF ZAMBIA":"ZM","REPUBLIC OF ZIMBABWE":"ZW","ROMANIA":"RO","RUSSIA":"RU","RUSSIAN FEDERATION":"RU","RWANDA":"RW","RWANDESE REPUBLIC":"RW","R\u00c9UNION":"RE","SAINT BARTH\u00c9LEMY":"BL","SAINT HELENA, ASCENSION AND TRISTAN DA CUNHA":"SH","SAINT KITTS AND NEVIS":"KN","SAINT LUCIA":"LC","SAINT MARTIN (FRENCH PART)":"MF","SAINT PIERRE AND MIQUELON":"PM","SAINT VINCENT AND THE GRENADINES":"VC","SAMOA":"WS","SAN MARINO":"SM","SAO TOME AND PRINCIPE":"ST","SAUDI ARABIA":"SA","SENEGAL":"SN","SERBIA":"RS","SEYCHELLES":"SC","SIERRA LEONE":"SL","SINGAPORE":"SG","SINT MAARTEN (DUTCH PART)":"SX","SLOVAK REPUBLIC":"SK","SLOVAKIA":"SK","SLOVENIA":"SI","SOCIALIST REPUBLIC OF VIET NAM":"VN","SOLOMON ISLANDS":"SB","SOMALIA":"SO","SOUTH AFRICA":"ZA","SOUTH GEORGIA AND THE SOUTH SANDWICH ISLANDS":"GS","SOUTH KOREA":"KR","SOUTH SUDAN":"SS","SPAIN":"ES","SRI LANKA":"LK","STATE OF ISRAEL":"IL","STATE OF KUWAIT":"KW","STATE OF QATAR":"QA","SUDAN":"SD","SULTANATE OF OMAN":"OM","SURINAME":"SR","SVALBARD AND JAN MAYEN":"SJ","SWAZILAND":"SZ","SWEDEN":"SE","SWISS CONFEDERATION":"CH","SWITZERLAND":"CH","SYRIA":"SY","SYRIAN ARAB REPUBLIC":"SY","TAIWAN":"TW","TAIWAN, PROVINCE OF CHINA":"TW","TAJIKISTAN":"TJ","TANZANIA":"TZ","TANZANIA, UNITED REPUBLIC OF":"TZ","THAILAND":"TH","THE NETHERLANDS":"NL","THE STATE OF ERITREA":"ER","THE STATE OF PALESTINE":"PS","TIMOR-LESTE":"TL","TOGO":"TG","TOGOLESE REPUBLIC":"TG","TOKELAU":"TK","TONGA":"TO","TRINIDAD AND TOBAGO":"TT","TUNISIA":"TN","TURKEY":"TR","TURKIYE":"TR","TURKMENISTAN":"TM","TURKS AND CAICOS ISLANDS":"TC","TUVALU":"TV","T\u00dcRKIYE":"TR","U.A.E":"AE","U.A.E.":"AE","U.K.":"GB","U.S.A":"US","U.S.A.":"US","UAE":"AE","UGANDA":"UG","UK":"GB","UKRAINE":"UA","UNION OF THE COMOROS":"KM","UNITED ARAB EMIRATES":"AE","UNITED KINGDOM":"GB","UNITED KINGDOM OF GREAT BRITAIN AND NORTHERN IRELAND":"GB","UNITED MEXICAN STATES":"MX","UNITED REPUBLIC OF TANZANIA":"TZ","UNITED STATES":"US","UNITED STATES MINOR OUTLYING ISLANDS":"UM","UNITED STATES OF AMERICA":"US","URUGUAY":"UY","USA":"US","UZBEKISTAN":"UZ","VANUATU":"VU","VENEZUELA":"VE","VENEZUELA, BOLIVARIAN REPUBLIC OF":"VE","VIET NAM":"VN","VIETNAM":"VN","VIRGIN ISLANDS OF THE UNITED STATES":"VI","VIRGIN ISLANDS, BRITISH":"VG","VIRGIN ISLANDS, U.S.":"VI","WALLIS AND FUTUNA":"WF","WESTERN SAHARA":"EH","YEMEN":"YE","ZAMBIA":"ZM","ZIMBABWE":"ZW","\u00c5LAND ISLANDS":"AX"};
+var TEMPLATE = [["GENERAL",["TransportMode","CustomHouseCode","SB_Type","Is_SEZ_Job","Loading_Port","Exporter_Name","BranchName","ExporterRefNo","ExporterRefDate","ExporterType","IsGRWaived","GR_RBIWaiver_No","GR_RBIWaiver_date","AD_Code","Consignee_name","Consignee_address","Consignee_Country_Code","IsBuyerOtherThanConsignee","Notify_name","Notify_address","Buyers_Order_No","Buyers_Order_Date","Other_Ref_No","Terms_of_Delivery_&_Payment","Origin_Country_Code","Type_of_Shipment","Specify_if_Other_Type_of_Shipment","Permission_No","Permission_Date","Export_Under","Discharge_Port_Code","Discharge_Country_Code","Destination_Port_Code","Destination_Country_Code","Nature_of_Cargo","Total_Packages","Package_Unit_Code","Loose_Packets","Gross_Weight","Net_Weight","Weight_Unit_Code","Origin_State_Code","Marks_&_No.","Warehouse_Code"]],["SEZ_INFO",["Mode_of_Transport","Purpose_of_Transaction","Mode_of_Realisation","Bank_for_Receiving_Payment","Is_ACU_Payment","Declaration_Date","Is_Provisional_Assessment","Is_Joint_Filing_Declaration","Is_Export_under_SEZAct2005_Rule2006","Will_Goods_move_out_in_parts","Is_Free_Export_under_FTP_Para2.01","Is_Reward_claimed_under_MEIS","Is_eCommerce_Transaction","eCommerce_webportal","Courier_detail","FIRC_Ref_ID","AWB_No.","Is_Client_detail_applicable","Client_Type","Client_IEC","Client_GSTIN","Client_Name","Client_Address","Client_Country_Code","Is_Third_Party_detail_applicable","Third_Party_IEC","Third_Party_BranchSrNo","Third_Party_Name","Third_Party_Address","Third_Party_City","Third_Party_PIN","Third_Party_Country_Code","Invoice_Value","Invoice_Value_Currency_Code"]],["PACKING_DETAIL",["From_Packet","To_Packet","Packet_Unit_Code"]],["STUFFING_INFO",["Goods_Stuffed_at","Is_Sample_Accompanied","CFS_Location","Factory_Address","Seal_Type","Seal_No","Agency_Name"]],["ANNEXURE_C1",["IEC_of_EOU","BranchSrNo","Examination_Date","Examining_Officer","Examining_Officer_Designation","Supervising_Officer","Supervising_Officer_Designation","Commissionerate","Division","Range","Verified_by_Examining_Officer","Is_Sample_Forwarded","Seal_No"]],["EXBOND_INFO",["BE_No","BE_Date","Vessel","Voyage","IGM_No.","IGM_Date","No_of_Pkg","Bond_No.","Bond_Date","Warehouse"]],["CONTAINER",["Container_No.","Container_Type","Packages_Stuffed","Gross_Weight","Gross_Weight_Unit_Code","Seal_No.","Seal_Date","Seal_Type","Seal_Device_ID","Movement_Document_Type","Movement_Document_No."]],["INVOICES",["InvSrNo","Inv_No","Date","TOI","TOI_Place","Inv_Currency_Code","Price_Includes_N_F_I_B","Taxable_value_for_IGST","Invoice_Value","Product_Value","Packing_FOB_Amount","Freight_Currency_Code","Freight_Percentage","Freight_Amount","Insurance_Currency_Code","Insurance_Percentage","Insurance_Amount","Discount_Currency","Discount_Percentage","Discount_Amount","Other_Deduction_Currency","Other_Deduction_Percentage","Other_Deduction_Amount","Commission_Currency","Commission_Percentage","Commission_Amount","Third_Party_Name","Third_Party_Address","Third_Party_City","Third_Party_PIN","Third_Party_State","Third_Party_Country_Code","Buyer_Name","Buyer_Address","Buyer_City","Buyer_PIN","Buyer_State","Buyer_Country_Code","Export_Contract_No.","Export_Contract_Date","Nature_of_Payment","Payment_Period","AEO_Code","AEO_Country_Code","AEO_Role"]],["ITEMS",["InvSrNo","ItemSrNo","Product_Desc","RITC","Quantity","Quantity_Unit_Code","Unit_Price","Per_Unit_No.","SQC_Quantity","SQC_Quantity_Unit_Code","Exim_Scheme_Code","NFEI_Category_Code","PMV","PMV_Currency_Code","IGST_Pay_Status","IGST_Taxable_Amt","IGST_Rate","IGST_Amount","CompCessRate","Is_Reward_Item","End_Use_Code","Origin_District_Code","PTAFTA_Code","Accessories_Status","Accessory_Info","DBK_Sr._No","DBK_Quantity","DBK_Under","Product_Material_Code","TP_Exporter_Name","TP_Exporter_IE_Code","TP_Exporter_BrS_No.","TP_Exporter_Reg_Type","TP_Exporter_Reg_No","TP_Exporter_Addr","Manufacturer","Manufacturer_Addr","Manufacturer_CodeType","Manufacturer_Code","Manufacturer_Country","Manufacturer_State","Manuf_Postal_Code","SourceState","TransitCountry","CENVAT_Certificate_No.","CENVAT_Certificate_Date","CENVAT_Certificate_Valid_upto","CENVAT_Central_Excise_Office_Code","CENVAT_Assesse_Code","RoDTEP_Status","RoDTEP_Quantity","RoDTEP_Quantity_Unit_Code","Medicinal_Plant","Formulation","Surface_Material_in_Contact","GST_Allowed","LGD_Code"]],["DEEC",["InvSrNo","ItemSrNo","License_Reference_No.","License_Registration_No","License_Registration_Date","Export_Item_SrNo.","Export_Item_Qty","Import_Item_SrNo.","Import_Item_Type","Import_Item_Description","Import_Item_Quantity","Import_Item_Quantity_Unit_Code"]],["EPCG",["InvSrNo","ItemSrNo","License_Reference_No.","License_Registration_No","License_Registration_Date","Export_Item_SrNo.","Export_Item_Qty","Import_Item_SrNo.","Import_Item_Type","Import_Item_Description","Import_Item_Quantity","Import_Item_Quantity_Unit_Code"]],["DFIA",["InvSrNo","ItemSrNo","License_Reference_No.","License_Registration_No","License_Registration_Date","Export_Item_SrNo.","Export_Item_Qty","Import_Item_SrNo.","Import_Item_Type","Import_Item_Description","Import_Item_Quantity","Import_Item_Quantity_Unit_Code"]],["DFRC",["InvSrNo","ItemSrNo","Regn_No","Prod_Group","SION_Sr_No","SION_IONorm_SNo","Qty","Unit","Item_Type","Item_Description","Technical_Details"]],["CESS_AND_DUTY",["InvSrNo","ItemSrNo","Export_Duty_Schedule","Quantity_for_Export_Duty","Cess_Schedule","Tariff_Value_for_Cess","Tariiff_Value_Unit_Code","Quantity_for_Cess","Other_Duty/Cess_Schedule","Quantity_for_Other_Duty/Cess","Third_Cess_Schedule","Quantity_for_Third_Cess"]],["QUOTA",["Inv_SrNo","Item_SrNo","Certificate_No.","Agency_Code","Expiry_Date","Quantity","Quantity_Unit_Code"]],["ARE_DETAILS",["Inv_SrNo","Item_SrNo","ARE_No.","ARE_Date","Commissionerate","Division","Range","Remarks"]],["JOB_WORK",["Inv_SrNo.","Item_SrNo","Notification_No.","BE_No.","BE_Date","BE_Inv_SrNo.","BE_Actual_Inv_No.","BE_Item_SrNo","Imported_at","BE_Quantity","BE_Quantity_Unit_Code"]],["RE-EXPORT",["InvSrNo","ItemSrNo","BE_No","BE_Date","BE_Inv_SNo","BE_Item_SNo","BE_Import_Port_Code","Manual_BE","BE_Item_Description","Imported_Quantity","Imported_Quantity_Unit_Code","Assessable_Value","Tot_Duty_Paid","Duty_Payment_Date","Exported_Quantity","Exported_Quantity_Unit_Code","Technical_Details","Is_Input_Credit_Availed","Is_Personal_Use_Item","Other_Identifying_Parameters","Obligation_No.","DBK_Amount_Claimed","Is_Item_Un-Used","Is_Commissioner_Permission","Board_No.","Board_Date","Is_MODVAT_Availed","Is_MODVAT_Reversed"]],["DUC",["InvSrNo","ItemSrNo","DUC Reference No.","Export Type","SB Date","BE No.","BE Date","BE Filed At","BE Inv Sr","BE Item Sr"]],["SW_ADDL_INFO",["Inv_SrNo","Item_SrNo","Info_Type","info_Qualifier","Info_Code_Description","Information","Measure","Measure_Unit"]],["SW_CONSTITUENT",["Inv_SrNo","Item_SrNo","Cons_Name","Cons_Code","Cons_Percentage","Cons_Yield%","Cons_Active"]],["SW_PRODUCTION",["Inv_SrNo","Item_SrNo","Prod_Batch_ID","Prod_Batch_Quantity","Prod_Batch_Unit","Prod_Manufacturer_Date","Prod_Expiry_Date","Prod_Best_before_Date"]],["SW_CONTROL",["Inv_SrNo","Item_SrNo","Control_Type","Control_Location","Control_Start_Date","Control_End_Date","Control_Result"]],["STATEMENT",["Inv_SrNo","Item_SrNo","StatementType","StatementCode","StatementRemarks"]],["E-SANCHIT",["Inv_SrNo","Item_SrNo","Doc_ICEGATE_ID","Doc_IRN","Doc_Upload_DateTime","Doc_Type","File_Type","Icegate_File_Name","Document_Name","Reference_No.","Doc_Issued_At","Doc_Issued_Date","Doc_Expiry_Date","Doc_Issuing_Party_Name","Doc_Issuing_Party_Code","Doc_Issuing_Party_Add1","Doc_Issuing_Party_Add2","Doc_Issuing_Party_City","Doc_Issuing_Party_Pin_Code","Doc_Beneficiary_Party_Name","Doc_Beneficiary_Party_Code","Doc_Beneficiary_Party_Add1","Doc_Beneficiary_Party_Add2","Doc_Beneficiary_Party_City","Doc_Beneficiary_Party_Pin_Code"]],["EXCHANGE_RATE",["CURRENCY_CODE","EXCHANGE_RATE","BANK_NAME","BANK_CERTIFICATE","BANK_CERTIFICATE_DATE"]]];
+</script>
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  var STORE_KEY = 'formbridge.asb.config.v1';
+
+  if (window.pdfjsLib) { pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; }
+
+  /* ---------- settings ---------- */
+  function clone(o) { return JSON.parse(JSON.stringify(o)); }
+  function loadCfg() {
+    var cfg = clone(FBCORE.DEFAULT_CONFIG);
+    try {
+      var raw = window.localStorage.getItem(STORE_KEY);
+      if (raw) {
+        var saved = JSON.parse(raw);
+        Object.keys(cfg).forEach(function (grp) { if (saved[grp]) { Object.keys(saved[grp]).forEach(function (k) { cfg[grp][k] = saved[grp][k]; }); } });
+        if (saved.rules) cfg.rules = saved.rules;
+        ['units', 'toi', 'ports', 'mode', 'hs'].forEach(function (k) { if (saved.maps && saved.maps[k]) cfg.maps[k] = saved.maps[k]; });
+      }
+    } catch (e) { /* storage unavailable: use built-in values */ }
+    return cfg;
+  }
+  var CFG = loadCfg();
+  var S = { ci: null, pl: null, model: null, docs: {}, ignored: 0 };
+
+  var GROUP_TITLES = { general: 'General sheet', invoice: 'Invoice sheet', item: 'Item sheet', other: 'Other sheets' };
+  var MAP_TITLES = { units: ['Units', 'Unit on the invoice', 'Code in the workbook'], toi: ['Delivery term (TOI)', 'Incoterm on the invoice', 'Code in the workbook'], ports: ['Ports', 'Port name on the invoice', 'Port code'], mode: ['Mode of dispatch', 'Mode on the invoice', 'Transport mode code'], hs: ['HS rules for SQC quantity', 'HS code', 'WEIGHT or QTY'] };
+
+  function renderSettings() {
+    var h = '';
+    Object.keys(GROUP_TITLES).forEach(function (grp) {
+      h += '<h3 style="font-size:.95rem;margin:16px 0 6px">' + GROUP_TITLES[grp] + '</h3><div class="grid">';
+      Object.keys(CFG[grp]).forEach(function (k) {
+        var long = String(CFG[grp][k]).length > 60;
+        h += '<label class="f' + (long ? ' wide' : '') + '">' + esc(k.replace(/_/g, ' ')) + (long ? '<textarea data-grp="' + grp + '" data-k="' + esc(k) + '">' + esc(CFG[grp][k]) + '</textarea>' : '<input type="text" data-grp="' + grp + '" data-k="' + esc(k) + '" value="' + esc(CFG[grp][k]) + '">') + '</label>';
+      });
+      h += '</div>';
+    });
+    h += '<h3 style="font-size:.95rem;margin:16px 0 6px">Conversion rules for ASB’s Excel</h3><p class="small">Each rule looks in one column of one sheet and swaps the text. “Whole cell” changes only cells that equal the text; “Contains” swaps just that part.</p><div class="tw"><table><tr><th>Sheet</th><th>Column</th><th>Match</th><th>Find</th><th>Replace with</th><th></th></tr>';
+    CFG.rules.forEach(function (r, i) {
+      h += '<tr><td><input type="text" data-rule="' + i + '" data-f="sheet" value="' + esc(r.sheet) + '"></td><td><input type="text" data-rule="' + i + '" data-f="column" value="' + esc(r.column) + '"></td><td><select data-rule="' + i + '" data-f="match"><option value="exact"' + (r.match !== 'contains' ? ' selected' : '') + '>Whole cell</option><option value="contains"' + (r.match === 'contains' ? ' selected' : '') + '>Contains</option></select></td><td><input type="text" data-rule="' + i + '" data-f="find" value="' + esc(r.find) + '"></td><td><input type="text" data-rule="' + i + '" data-f="replace" value="' + esc(r.replace) + '"></td><td><button class="btn sec sm" data-delrule="' + i + '">Remove</button></td></tr>';
+    });
+    h += '</table></div><button class="btn sec sm" data-addrule="1" style="margin-top:8px">Add a rule</button>';
+    h += '<p class="small">In the marks text, {inv} and {date} are replaced with the invoice number and date.</p>';
+    Object.keys(MAP_TITLES).forEach(function (mk) {
+      var t = MAP_TITLES[mk];
+      h += '<h3 style="font-size:.95rem;margin:16px 0 6px">' + t[0] + '</h3><div class="tw"><table><tr><th>' + t[1] + '</th><th>' + t[2] + '</th><th></th></tr>';
+      Object.keys(CFG.maps[mk]).forEach(function (key) {
+        h += '<tr><td>' + esc(key) + '</td><td><input type="text" data-map="' + mk + '" data-key="' + esc(key) + '" value="' + esc(CFG.maps[mk][key]) + '"></td><td><button class="btn sec sm" data-del="' + mk + '" data-key="' + esc(key) + '">Remove</button></td></tr>';
+      });
+      h += '<tr><td><input type="text" id="newk_' + mk + '" placeholder="Add new"></td><td><input type="text" id="newv_' + mk + '"></td><td><button class="btn sec sm" data-add="' + mk + '">Add</button></td></tr></table></div>';
+    });
+    $('settings').innerHTML = h;
+  }
+  $('settings').addEventListener('change', function (e) { var t = e.target; if (t.tagName === 'SELECT' && t.dataset.rule != null) CFG.rules[+t.dataset.rule][t.dataset.f] = t.value; });
+$('settings').addEventListener('input', function (e) {
+    var t = e.target;
+    if (t.dataset.rule != null && t.dataset.rule !== '') CFG.rules[+t.dataset.rule][t.dataset.f] = t.value;
+    else if (t.dataset.grp) CFG[t.dataset.grp][t.dataset.k] = t.value;
+    else if (t.dataset.map) CFG.maps[t.dataset.map][t.dataset.key] = t.value.trim();
+  });
+  $('settings').addEventListener('click', function (e) {
+    var t = e.target;
+    if (t.dataset.delrule != null) { CFG.rules.splice(+t.dataset.delrule, 1); renderSettings(); return; }
+    if (t.dataset.addrule) { CFG.rules.push({ sheet: 'GENERAL', column: '', match: 'exact', find: '', replace: '' }); renderSettings(); return; }
+    if (t.dataset.del) { delete CFG.maps[t.dataset.del][t.dataset.key]; renderSettings(); }
+    if (t.dataset.add) {
+      var mk = t.dataset.add, k = $('newk_' + mk).value.trim().toUpperCase(), v = $('newv_' + mk).value.trim();
+      if (k && v) { CFG.maps[mk][mk === 'hs' ? k : k] = mk === 'hs' ? v.toUpperCase() : v; renderSettings(); }
+    }
+  });
+  $('save').onclick = function () {
+    try { window.localStorage.setItem(STORE_KEY, JSON.stringify(CFG)); $('setMsg').textContent = 'Saved in this browser.'; }
+    catch (e) { $('setMsg').textContent = 'This browser blocked saving. The values still apply until you close the page.'; }
+  };
+  $('reset').onclick = function () {
+    if (!confirm('Replace all fixed values and tables with the built-in ones?')) return;
+    CFG = clone(FBCORE.DEFAULT_CONFIG);
+    try { window.localStorage.removeItem(STORE_KEY); } catch (e) {}
+    renderSettings(); $('setMsg').textContent = 'Built-in values restored.';
+  };
+  $('apply').onclick = function () {
+    if (MODE === 'main') { if (!XS.files.length) { $('setMsg').textContent = 'Add ASB’s Excel first.'; return; } runExcel(); $('setMsg').textContent = 'Applied.'; return; }
+    if (!S.ci) { $('setMsg').textContent = 'Add the shipment documents first.'; return; }
+    if (!confirm('This re-reads the shipment with these settings and discards edits you made in the review tables. Continue?')) return;
+    build(); $('setMsg').textContent = 'Applied.';
+  };
+
+  /* ---------- reading files ---------- */
+  async function pdfItems(buf) {
+    var doc = await pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise;
+    var all = [];
+    for (var p = 1; p <= doc.numPages; p++) {
+      var page = await doc.getPage(p);
+      var tc = await page.getTextContent();
+      tc.items.forEach(function (i) { all.push({ s: i.str, x: i.transform[4], y: i.transform[5] - (p - 1) * 10000 }); });
+    }
+    return { items: all, pages: doc.numPages };
+  }
+  function classify(name, items) {
+    var txt = items.map(function (i) { return i.s; }).join(' ');
+    if (/PACKING LIST/i.test(txt) || /_PL\b/i.test(name)) return 'pl';
+    if (/Exchange Rate/i.test(txt) || /Description of Goods/i.test(txt) || /_CI\b/i.test(name)) return 'ci';
+    return '';
+  }
+  async function handleFiles(list) {
+    var files = Array.prototype.slice.call(list), pdfs = [], ignored = 0;
+    $('status').textContent = 'Reading…';
+    try {
+      for (var i = 0; i < files.length; i++) {
+        var f = files[i];
+        if (/\.zip$/i.test(f.name)) {
+          var z = await JSZip.loadAsync(await f.arrayBuffer());
+          var names = Object.keys(z.files).filter(function (n) { return !z.files[n].dir; });
+          for (var k = 0; k < names.length; k++) {
+            if (/\.pdf$/i.test(names[k])) pdfs.push({ name: names[k].split('/').pop(), buf: await z.files[names[k]].async('arraybuffer') });
+            else ignored++;
+          }
+        } else if (/\.pdf$/i.test(f.name)) { pdfs.push({ name: f.name, buf: await f.arrayBuffer() }); }
+        else ignored++;
+      }
+      for (var j = 0; j < pdfs.length; j++) {
+        var r = await pdfItems(pdfs[j].buf), kind = classify(pdfs[j].name, r.items);
+        if (kind) S.docs[kind] = { name: pdfs[j].name, items: r.items, pages: r.pages };
+      }
+      S.ignored = ignored;
+      chips();
+      if (S.docs.ci && S.docs.pl) { build(); $('status').textContent = ''; }
+      else $('status').textContent = 'Still needed: ' + (S.docs.ci ? '' : 'commercial invoice PDF ') + (S.docs.pl ? '' : 'packing list PDF') + '.';
+    } catch (err) {
+      $('status').textContent = 'Could not read those files: ' + (err && err.message ? err.message : err);
+    }
+  }
+  function chips() {
+    function c(kind, label) { var d = S.docs[kind]; return '<span class="chip ' + (d ? 'ok' : 'miss') + '">' + label + ': ' + (d ? esc(d.name) : 'not added yet') + '</span>'; }
+    $('chips').innerHTML = c('ci', 'Commercial invoice') + c('pl', 'Packing list') + (S.ignored ? '<span class="chip">' + S.ignored + ' other file' + (S.ignored > 1 ? 's' : '') + ' ignored</span>' : '');
+  }
+  var drop = $('drop'), fileIn = $('file');
+  drop.onclick = function () { fileIn.click(); };
+  drop.onkeydown = function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileIn.click(); } };
+  fileIn.onchange = function () { if (fileIn.files.length) handleFiles(fileIn.files); fileIn.value = ''; };
+  ['dragenter', 'dragover'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add('over'); }); });
+  ['dragleave', 'drop'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove('over'); }); });
+  drop.addEventListener('drop', function (e) { if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); });
+
+  /* ---------- build model + render ---------- */
+  var SHIP = [
+    ['invoiceNo', 'Invoice number'], ['invoiceDate', 'Invoice date (as written in the workbook)'], ['transportMode', 'Transport mode code'], ['toi', 'Delivery term (TOI)'],
+    ['currency', 'Invoice currency'], ['exchangeRate', 'Exchange rate to INR', 'num'], ['paymentPeriod', 'Payment period (days)'], ['natureOfPayment', 'Nature of payment'],
+    ['dischargePort', 'Port of discharge code'], ['dischargeCountry', 'Discharge country code'], ['packages', 'Total packages', 'num'], ['gross', 'Gross weight (kg)', 'num'], ['net', 'Net weight (kg)', 'num'],
+    ['consigneeName', 'Consignee name'], ['consigneeCountry', 'Consignee country code'], ['isBuyerOther', 'Buyer other than consignee (Y/N)'],
+    ['consigneeAddress', 'Consignee address', 'wide'], ['buyerName', 'Buyer name'], ['buyerCity', 'Buyer city'], ['buyerPin', 'Buyer PIN'], ['buyerCountry', 'Buyer country code'],
+    ['buyerAddress', 'Buyer address', 'wide'], ['endUse', 'End use code'], ['marks', 'Marks and numbers', 'wide']
+  ];
+  var ITEM_COLS = [['sr', 'Sr', 'ro'], ['desc', 'Description', 'text'], ['hsn', 'HS code', 'text'], ['qty', 'Qty', 'num'], ['unit', 'Unit', 'text'], ['price', 'Unit price', 'num'], ['perUnit', 'Per unit', 'num'], ['netWeight', 'Net wt (kg)', 'num'], ['basis', 'SQC basis', 'sel'], ['igstRate', 'IGST %', 'num']];
+
+  function build() {
+    var ci = FBCORE.parseCI(S.docs.ci.items), pl = FBCORE.parsePL(S.docs.pl.items);    S.ci = ci; S.pl = pl;
+    S.model = FBCORE.buildModel(ci, pl, CFG, COUNTRIES);
+    S.notes = S.model.warnings.slice();
+    if (S.docs.ci.pages > 1) S.notes.unshift('This invoice has ' + S.docs.ci.pages + ' pages. Only one-page invoices have been tested, so check every item row.');
+    if (S.docs.pl.pages > 1) S.notes.unshift('The packing list has ' + S.docs.pl.pages + ' pages. Only one-page packing lists have been tested, so check the weights.');
+    $('results').classList.remove('hidden');
+    renderShip(); renderItems(); refresh();
+  }
+  function renderShip() {
+    var m = S.model, h = '';
+    SHIP.forEach(function (f) {
+      var v = m[f[0]], wide = f[2] === 'wide';
+      h += '<label class="f' + (wide ? ' wide' : '') + '">' + f[1] + (wide ? '<textarea data-ship="' + f[0] + '">' + esc(v) + '</textarea>' : '<input type="text" data-ship="' + f[0] + '" data-num="' + (f[2] === 'num' ? 1 : 0) + '" value="' + esc(v) + '">') + '</label>';
+    });
+    $('shipGrid').innerHTML = h;
+  }
+  function renderItems() {
+    var m = S.model, h = '<tr>' + ITEM_COLS.map(function (c) { return '<th>' + c[1] + '</th>'; }).join('') + '</tr>';
+    m.items.forEach(function (x, i) {
+      h += '<tr>';
+      ITEM_COLS.forEach(function (c) {
+        var v = x[c[0]];
+        if (c[2] === 'ro') h += '<td>' + esc(v) + '</td>';
+        else if (c[2] === 'sel') h += '<td><select data-item="' + i + '" data-f="basis" style="min-width:96px"><option value="">choose</option><option value="WEIGHT"' + (v === 'WEIGHT' ? ' selected' : '') + '>WEIGHT</option><option value="QTY"' + (v === 'QTY' ? ' selected' : '') + '>QTY</option></select></td>';
+        else h += '<td class="' + (c[2] === 'num' ? 'n' : '') + '"><input type="text" data-item="' + i + '" data-f="' + c[0] + '" data-num="' + (c[2] === 'num' ? 1 : 0) + '" value="' + esc(v) + '" style="min-width:' + (c[0] === 'desc' ? 240 : c[0] === 'hsn' ? 90 : 62) + 'px"></td>';
+      });
+      h += '</tr>';
+    });
+    $('itemsTbl').innerHTML = h;
+    $('itemsHint').textContent = 'SQC basis: WEIGHT sends the item’s net weight in kg, QTY sends the invoice quantity. Picking one here also adds it to the HS rules for that HS code.';
+  }
+  document.addEventListener('input', function (e) {
+    var t = e.target;
+    if (t.dataset.ship) {
+      var k = t.dataset.ship, v = t.dataset.num === '1' ? parseFloat(String(t.value).replace(/,/g, '')) || 0 : t.value;
+      S.model[k] = v;
+      if (k === 'dischargePort') S.model.destPort = v;
+      if (k === 'dischargeCountry') S.model.destCountry = v;
+      refresh();
+    } else if (t.dataset.item != null && t.dataset.item !== '') {
+      var it = S.model.items[+t.dataset.item], f = t.dataset.f;
+      if (t.dataset.num === '1') it[f] = parseFloat(String(t.value).replace(/,/g, '')) || 0; else it[f] = t.value;
+      refresh();
+    }
+  });
+  document.addEventListener('change', function (e) {
+    var t = e.target;
+    if (t.tagName === 'SELECT' && t.dataset.item != null) {
+      var it = S.model.items[+t.dataset.item];
+      it.basis = t.value;
+      if (t.value && it.hsn) { CFG.maps.hs[it.hsn] = t.value; renderSettings(); }
+      refresh();
+    }
+  });
+  $('fx').onchange = function () { refresh(); };
+
+  /* ---------- checks, preview, download ---------- */
+  function problems() {
+    var m = S.model, p = [];
+    function need(k, label) { if (m[k] === '' || m[k] == null || m[k] === 0) p.push(label); }
+    need('transportMode', 'Transport mode code'); need('toi', 'Delivery term (TOI)'); need('currency', 'Invoice currency'); need('exchangeRate', 'Exchange rate');
+    need('dischargePort', 'Port of discharge code'); need('consigneeCountry', 'Consignee country code'); need('packages', 'Total packages'); need('gross', 'Gross weight'); need('net', 'Net weight');
+    if (m.isBuyerOther === 'Y') { need('buyerName', 'Buyer name'); need('buyerCountry', 'Buyer country code'); }
+    m.items.forEach(function (x) {
+      var pre = 'Item ' + x.sr + ': ';
+      if (!x.unit) p.push(pre + 'unit code');
+      if (!x.basis) p.push(pre + 'SQC basis');
+      if (x.basis === 'WEIGHT' && !(x.netWeight > 0)) p.push(pre + 'net weight');
+      if (!(x.qty > 0)) p.push(pre + 'quantity');
+      if (!(x.price > 0)) p.push(pre + 'unit price');
+    });
+    return p;
+  }
+  function markMissing() {
+    var m = S.model;
+    document.querySelectorAll('[data-ship]').forEach(function (el) {
+      var k = el.dataset.ship, req = ['transportMode', 'toi', 'currency', 'exchangeRate', 'dischargePort', 'consigneeCountry', 'packages', 'gross', 'net'].indexOf(k) >= 0;
+      el.classList.toggle('miss-field', req && (m[k] === '' || m[k] == null || m[k] === 0));
+    });
+    document.querySelectorAll('[data-item]').forEach(function (el) {
+      var x = m.items[+el.dataset.item], f = el.dataset.f, bad = false;
+      if (f === 'unit') bad = !x.unit; if (f === 'basis') bad = !x.basis; if (f === 'netWeight') bad = x.basis === 'WEIGHT' && !(x.netWeight > 0);
+      el.classList.toggle('miss-field', bad);
+    });
+  }
+  function refresh() {
+    var probs = problems();
+    $('problems').innerHTML = probs.length ? '<div class="box bad"><strong>Fill these in before downloading</strong><ul>' + probs.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul></div>' : '<div class="box ok">Every required value is filled in.</div>';
+    $('notes').innerHTML = S.notes.length ? '<div class="box warn"><strong>Worth a look</strong><ul>' + S.notes.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul></div>' : '';
+    markMissing();
+    $('dl').disabled = probs.length > 0;
+    $('dlName').textContent = probs.length ? 'Download unlocks when the red fields are filled.' : 'File name: ' + fname();
+    try { renderPreview(); } catch (e) { $('preview').innerHTML = '<div class="box bad">Preview failed: ' + esc(e.message) + '</div>'; }
+  }
+  function fname() { return (S.model.invoiceNo || 'shipment') + '_SB-upload.xlsx'; }
+  function makeWb() { return FBCORE.buildWorkbook(S.model, CFG, XLSX, TEMPLATE, { formulas: $('fx').checked }); }
+  function renderPreview() {
+    var wb = makeWb(), h = '';
+    ['GENERAL', 'INVOICES', 'ITEMS', 'EXCHANGE_RATE'].forEach(function (nm) {
+      var ws = wb.Sheets[nm], range = XLSX.utils.decode_range(ws['!ref']);
+      h += '<h3 style="font-size:.9rem;margin:14px 0 4px">' + nm + '</h3>';
+      if (nm === 'ITEMS') {
+        var cols = [];
+        for (var c = range.s.c; c <= range.e.c; c++) { var any = false; for (var r = 1; r <= range.e.r; r++) { if (ws[XLSX.utils.encode_cell({ r: r, c: c })]) any = true; } if (any) cols.push(c); }
+        h += '<table><tr>' + cols.map(function (c) { return '<th>' + esc(ws[XLSX.utils.encode_cell({ r: 0, c: c })].v) + '</th>'; }).join('') + '</tr>';
+        for (var r2 = 1; r2 <= range.e.r; r2++) h += '<tr>' + cols.map(function (c) { var cell = ws[XLSX.utils.encode_cell({ r: r2, c: c })]; return '<td>' + (cell ? esc(cell.v) + (cell.f ? ' <span class="small">ƒ</span>' : '') : '') + '</td>'; }).join('') + '</tr>';
+        h += '</table>';
+      } else {
+        h += '<table class="kv">';
+        for (var rr = 1; rr <= range.e.r; rr++) {
+          for (var c2 = range.s.c; c2 <= range.e.c; c2++) {
+            var cell2 = ws[XLSX.utils.encode_cell({ r: rr, c: c2 })];
+            if (cell2) h += '<tr><th>' + esc(ws[XLSX.utils.encode_cell({ r: 0, c: c2 })].v) + '</th><td>' + esc(cell2.v) + (cell2.f ? ' <span class="small">ƒ</span>' : '') + '</td></tr>';
+          }
+          if (nm === 'EXCHANGE_RATE') h += '<tr><td colspan="2"></td></tr>';
+        }
+        h += '</table>';
+      }
+    });
+    h += '<p class="small">ƒ marks a cell that is a live formula in the workbook. The other 22 sheets are included with their headers only, as in the reference file.</p>';
+    $('preview').innerHTML = h;
+  }
+  $('dl').onclick = function () {
+    var probs = problems();
+    if (probs.length) return;
+    XLSX.writeFile(makeWb(), fname());
+  };
+
+  /* ---------- mode switch ---------- */
+  var MODE = 'main';
+  function setMode(m) {
+    MODE = m;
+    $('mainMode').classList.toggle('hidden', m !== 'main'); $('pilotMode').classList.toggle('hidden', m !== 'pilot');
+    $('tabMain').classList.toggle('sec', m !== 'main'); $('tabPilot').classList.toggle('sec', m !== 'pilot');
+    $('tabMain').setAttribute('aria-pressed', m === 'main'); $('tabPilot').setAttribute('aria-pressed', m === 'pilot');
+  }
+  $('tabMain').onclick = function () { setMode('main'); }; $('tabPilot').onclick = function () { setMode('pilot'); };
+
+  /* ---------- main route: ASB Excel -> ERP Excel ---------- */
+  var XS = { files: [], current: 0, result: null, ignored: 0 };
+  async function handleExcel(f) {
+    $('statusX').textContent = 'Reading…'; XS.files = []; XS.ignored = 0;
+    try {
+      if (/\.zip$/i.test(f.name)) {
+        var z = await JSZip.loadAsync(await f.arrayBuffer());
+        var names = Object.keys(z.files).filter(function (n) { return !z.files[n].dir; });
+        for (var k = 0; k < names.length; k++) {
+          if (/\.xlsx$/i.test(names[k]) && !/^__MACOSX|\/~\$/.test(names[k])) XS.files.push({ name: names[k].split('/').pop(), buf: await z.files[names[k]].async('arraybuffer') });
+          else XS.ignored++;
+        }
+      } else if (/\.xlsx$/i.test(f.name)) XS.files.push({ name: f.name, buf: await f.arrayBuffer() });
+      if (!XS.files.length) { $('statusX').textContent = 'No .xlsx file found in that upload.'; return; }
+      /* when several, start with the one that isn't already marked NEW (ERP version) */
+      var pref = XS.files.findIndex(function (x) { return !/new/i.test(x.name); });
+      XS.current = pref >= 0 ? pref : 0;
+      $('pickX').innerHTML = XS.files.map(function (x, i) { return '<option value="' + i + '"' + (i === XS.current ? ' selected' : '') + '>' + esc(x.name) + '</option>'; }).join('');
+      $('pickWrap').classList.toggle('hidden', XS.files.length < 2);
+      $('statusX').textContent = '';
+      runExcel();
+    } catch (err) { $('statusX').textContent = 'Could not read that file: ' + (err && err.message ? err.message : err); }
+  }
+  $('pickX').onchange = function () { XS.current = +$('pickX').value; runExcel(); };
+  $('fxX').onchange = function () { if (XS.files.length) runExcel(); };
+  function runExcel() {
+    var f = XS.files[XS.current];
+    $('chipsX').innerHTML = '<span class="chip ok">ASB Excel: ' + esc(f.name) + '</span>' + (XS.ignored ? '<span class="chip">' + XS.ignored + ' other file' + (XS.ignored > 1 ? 's' : '') + ' ignored</span>' : '');
+    var wb;
+    try { wb = XLSX.read(f.buf, { type: 'array' }); } catch (e) { $('statusX').textContent = 'That file is not a readable Excel workbook.'; return; }
+    var res = FBCORE.transformExcel(wb, XLSX, TEMPLATE, CFG, { formulas: $('fxX').checked });
+    XS.result = res;
+    $('resultsX').classList.remove('hidden');
+    $('issuesX').innerHTML = res.issues.length ? '<div class="box bad"><strong>This doesn’t match the expected 26-sheet layout</strong><ul>' + res.issues.slice(0, 15).map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + (res.issues.length > 15 ? '<li>…and ' + (res.issues.length - 15) + ' more.</li>' : '') + '</ul></div>' : '<div class="box ok">Sheet and column layout matches the expected template.</div>';
+    $('notesX').innerHTML = res.notes.length ? '<div class="box warn"><strong>Worth a look</strong><ul>' + res.notes.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul></div>' : '';
+    $('changesX').innerHTML = res.changes.length ? '<table><tr><th>Cell</th><th>Column</th><th>ASB sent</th><th>ERP file</th></tr>' + res.changes.map(function (c) { return '<tr><td>' + esc(c.sheet + '!' + c.addr) + '</td><td>' + esc(c.column) + '</td><td>' + esc(c.before) + '</td><td>' + esc(c.after) + '</td></tr>'; }).join('') + '</table>' : '<p class="small">No cell needed changing.</p>';
+    $('countsX').innerHTML = '<table><tr><th>Sheet</th><th>Data rows</th></tr>' + res.rowCounts.map(function (r) { return '<tr><td>' + esc(r[0]) + '</td><td>' + r[1] + '</td></tr>'; }).join('') + '</table>';
+    var name = (res.invoiceNo || 'shipment') + '-NEW.xlsx';
+    $('dlNameX').textContent = res.issues.length ? 'Download is blocked until the layout matches.' : 'File name: ' + name;
+    $('dlX').disabled = res.issues.length > 0; XS.name = name;
+  }
+  $('dlX').onclick = function () { if (XS.result && !XS.result.issues.length) XLSX.writeFile(XS.result.wb, XS.name); };
+  var dropX = $('dropX'), fileX = $('fileX');
+  dropX.onclick = function () { fileX.click(); };
+  dropX.onkeydown = function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileX.click(); } };
+  fileX.onchange = function () { if (fileX.files.length) handleExcel(fileX.files[0]); fileX.value = ''; };
+  ['dragenter', 'dragover'].forEach(function (ev) { dropX.addEventListener(ev, function (e) { e.preventDefault(); dropX.classList.add('over'); }); });
+  ['dragleave', 'drop'].forEach(function (ev) { dropX.addEventListener(ev, function (e) { e.preventDefault(); dropX.classList.remove('over'); }); });
+  dropX.addEventListener('drop', function (e) { if (e.dataTransfer.files.length) handleExcel(e.dataTransfer.files[0]); });
+
+  renderSettings();
+})();
+</script>
+</body>
+</html>
