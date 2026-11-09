@@ -1997,7 +1997,7 @@ function pricingRows(){
   const m = new Map(); state.quotes.quotes.forEach(q => { const k = q.inq.toUpperCase(), o = m.get(k); if(!o || (!o.airline && q.airline)) m.set(k, q); });
   return [...m.values()].map(q => ({inq: q.inq, sheet: q.sheet, person: pricingWho({person: Core.pricingPerson(q.inq, state.team), name: q.name}), date: isoDate(q.rfqDate), type: q.qtype, status: q.status, customer: q.customer, pol: q.pol, pod: q.pod, airline: q.airline, buy: q.buy, sell: q.sell}));
 }
-const PQ_HEAD = ['RFQ no (INQ NO)', 'Pricing sheet', 'Pricing person', 'Quote date', 'Quote type', 'Status', 'Customer', 'Origin', 'Destination', 'Airline', 'Quoted buy (type over to correct)', 'Quoted sell (type over to correct)', 'Original buy (pricing sheet)', 'Original sell (pricing sheet)', 'Changed?'];
+const PQ_HEAD = ['RFQ no (INQ NO)', 'Pricing sheet', 'Pricing person', 'Quote date', 'Quote type', 'Status', 'Customer', 'Origin', 'Destination', 'Airline', 'Quoted buy (as entered)', 'Quoted sell (as entered)'];
 function houseExtra(r, s){
   const hq = r.quote ? r.quote.houses.find(h => h.shipmentNo === s.shipmentNo) : null, a = r.actual && r.actual.found ? r.actual.byJob.find(j => j.job === s.shipmentNo) : null;
   let h = '<br>' + (s.rfqNo ? 'RFQ ' + esc(s.rfqNo) + (state.quotes ? (hq && hq.inq ? ' · found in the pricing sheet (quoted buy ' + f2(hq.buy) + ', sell ' + f2(hq.sell) + (hq.lump ? ', a lump sum worked out per kg' : '') + ')' : ' · not in the pricing sheet') : '') : 'No RFQ number in the register');
@@ -2013,7 +2013,7 @@ function houseRowObjs(l){
     const rfqState = !r.rfqNo ? 'No RFQ number in the register' : !state.quotes ? 'Pricing sheet not loaded' : (hq && hq.inq ? 'Yes: found in the pricing sheet' : (l.quote || l.quoteWhy ? 'No: not in the pricing sheet' : ''));
     return {'Master AWB': l.cass.awb, 'Invoice no': l.cass.invoiceNo, 'Master job (consol)': r.consolJob && r.consolJob !== r.shipmentNo ? r.consolJob : '', 'House shipment': r.shipmentNo, 'House AWB': r.hawb || '', Company: shortCo(r.company), Customer: r.customer || '',
       'Chargeable wt (kg)': r.weight == null ? '' : r.weight, 'Register buy as entered': r.buyRate == null ? '' : r.buyRate, 'Register buy is': r.buyRate == null ? '' : (num('oLump', 4000) > 0 && r.buyRate > num('oLump', 4000) ? 'A lump sum' : 'A rate per kg'), 'Buy rate/kg (worked out)': r.buyRate == null ? '' : (num('oLump', 4000) > 0 && r.buyRate > num('oLump', 4000) ? (r.weight > 0 ? Math.round(r.buyRate / r.weight * 100) / 100 : '') : r.buyRate), 'Sell rate/kg': r.sellRate == null ? '' : r.sellRate, 'RFQ no (register)': r.rfqNo || '', 'RFQ in the pricing sheet': rfqState,
-      'Quoted buy as entered': hq && hq.buyRaw != null ? hq.buyRaw : '', 'Quoted sell as entered': hq && hq.sellRaw != null ? hq.sellRaw : '', 'Pricing RFQ used': hq && hq.inq ? hq.inq : '', 'Booked cost (this job)': job ? job.exp : '', 'Billed income (this job)': job ? job.inc : ''};
+      'Quoted buy as entered': hq && hq.buyRaw != null ? hq.buyRaw : '', 'Quoted sell as entered': hq && hq.sellRaw != null ? hq.sellRaw : '', 'Booked cost (this job)': job ? job.exp : '', 'Billed income (this job)': job ? job.inc : ''};
   });
 }
 function detailHtml(r){
@@ -2799,26 +2799,6 @@ async function exportData(){
     const hrows = lines.flatMap(houseRowObjs), withResult = !window.__NGL_NO_CACHE;
     const pqRows = hasQ ? pricingRows() : [];
     buildCondensed(wb, lines, {hasQ, hasA, findH, inv, uj, hn: hrows.length, withResult, pqn: pqRows.length});
-    if(hasQ){                                         // the Data sheet's quote columns follow the Pricing quotes sheet by formula
-      const dl = h => { const i = COLS.findIndex(c => c.head === h); return i < 0 ? null : colLetter(i + 1); };
-      const D = {awb: dl('AWB'), inv: dl('Invoice no'), wtreg: dl('Chargeable wt (register)'), cass: dl('CASS rate/kg'), net: dl('Net before tax (IATA buy)'), rbuy: dl('Register buy/kg'), rsell: dl('Register sell/kg'), qbuy: dl('Quoted buy/kg'), qsell: dl('Quoted sell/kg'), billed: dl('Billed income')};
-      const HX = n => 'Houses!$' + n + '$2:$' + n + '$' + (hrows.length + 1);
-      const key = r => `${HX('A')},$${D.awb}${r},${HX('B')},$${D.inv}${r}`;
-      const amt = (c, r) => `IF(COUNTIFS(${key(r)})=0,"",IF(COUNTIFS(${key(r)},${HX(c)},">-1E+300")=COUNTIFS(${key(r)}),SUMIFS(${HX(c)},${key(r)}),""))`;
-      const perKg = (c, r) => `IF(COUNTIFS(${key(r)})=0,"",IF(COUNTIFS(${key(r)},${HX(c)},">-1E+300")=COUNTIFS(${key(r)}),IF(N(${D.wtreg}${r})>0,ROUND(SUMIFS(${HX(c)},${key(r)})/${D.wtreg}${r},2),""),""))`;
-      const F = {
-        'Quoted buy/kg': r => perKg('T', r), 'Quoted sell/kg': r => perKg('U', r),
-        'Register buy − quoted buy/kg': r => `IF(OR(${D.rbuy}${r}="",${D.qbuy}${r}=""),"",ROUND(${D.rbuy}${r}-${D.qbuy}${r},2))`,
-        'IATA − quoted buy/kg': r => `IF(OR(${D.cass}${r}="",${D.qbuy}${r}=""),"",ROUND(${D.cass}${r}-${D.qbuy}${r},2))`,
-        'IATA − quoted buy × wt (₹)': r => `IFERROR(ROUND(${D.net}${r}-(${amt('T', r)}),2),"")`,
-        'Register sell − quoted sell/kg': r => `IF(OR(${D.rsell}${r}="",${D.qsell}${r}=""),"",ROUND(${D.rsell}${r}-${D.qsell}${r},2))`,
-        'Billed − quoted sell × wt (₹)': r => `IF(${D.billed}${r}="","",IFERROR(ROUND(${D.billed}${r}-(${amt('U', r)}),2),""))`};
-      Object.keys(F).forEach(h => { const ci = COLS.findIndex(c => c.head === h); if(ci < 0) return; const C = COLS[ci];
-        lines.forEach((l, i) => { const r = i + 3, cell = ws.getCell(r, ci + 1); let v = C.fn(l); if(v === '' || v === undefined || v == null || (typeof v === 'number' && !isFinite(v))) v = ''; const f = F[h](r);
-          cell.value = withResult ? {formula: f, result: v} : {formula: f};
-          if(C.t === 'diffQ'){ cell.font = {}; cell.fill = {type: 'pattern', pattern: 'none'}; } });
-        if(C.t === 'diffQ'){ const L2 = colLetter(ci + 1); ws.addConditionalFormatting({ref: `${L2}3:${L2}${lines.length + 2}`, rules: [{type: 'expression', priority: 1, formulae: [`AND(ISNUMBER(${L2}3),ABS(${L2}3)>=${T.Q})`], style: {font: {bold: true, color: {argb: 'FFB91C1C'}}, fill: {type: 'pattern', pattern: 'solid', bgColor: {argb: 'FFFEE2E2'}}}}]}); } });
-    }
     if(state.res.companies.length > 1){                       // the same AWB in both companies' registers
       const dl = dupLines(), DH = dupHead(), drows = dl.flatMap(dupRowObjs), dws = wb.addWorksheet('Duplicate AWBs', {views: [{state: 'frozen', xSplit: 1, ySplit: 2}]});
       dws.addRow([dl.length ? dl.length + ' AWBs are in both companies’ registers (' + drows.length + ' register rows). Each is counted under the company the CASS bill arrives in; the other register’s rows are shown here so you can decide which company the AWB belongs to.' : 'No AWB was found in both companies’ registers.']);
@@ -2827,7 +2807,7 @@ async function exportData(){
       DH.forEach((h, i) => { const c = dws.getCell(2, i + 1); c.font = {bold: true}; c.fill = {type: 'pattern', pattern: 'solid', fgColor: {argb: 'FFE2E8F0'}}; c.alignment = {wrapText: true, vertical: 'middle'}; dws.getColumn(i + 1).width = DUP_WIDTHS()[i]; });
       dws.getRow(2).height = 32; dws.autoFilter = {from: {row: 2, column: 1}, to: {row: 2, column: DH.length}};
     }
-    const hws = wb.addWorksheet('Houses', {views: [{state: 'frozen', xSplit: 2, ySplit: 1}]}), HH = HOUSE_HEAD.concat(['Register buy amount (₹)', 'Quoted buy amount (₹)', 'Quoted sell amount (₹)', 'Pricing RFQ used']), LIM = 'Condensed!$C$2', LIMQ = 'Condensed!$H$2', qlump = Math.max(0, num('pLump', 4000));
+    const hws = wb.addWorksheet('Houses', {views: [{state: 'frozen', xSplit: 2, ySplit: 1}]}), HH = HOUSE_HEAD.concat(['Register buy amount (₹)', 'Quoted buy amount (₹)', 'Quoted sell amount (₹)']), LIM = 'Condensed!$C$2', LIMQ = 'Condensed!$H$2', qlump = Math.max(0, num('pLump', 4000));
     hws.addRow(HH);
     hrows.forEach((o, ri) => {
       const row = hws.addRow(HOUSE_HEAD.map(k => o[k] === '' ? null : o[k])), r = ri + 2, lump = o['Register buy as entered'] !== '' && num('oLump', 4000) > 0 && o['Register buy as entered'] > num('oLump', 4000);
@@ -2843,26 +2823,15 @@ async function exportData(){
         set(col, `IF(${src}${r}="","",IF(AND(${LIMQ}>0,${src}${r}>${LIMQ}),${src}${r},IF(H${r}="","",ROUND(${src}${r}*H${r},2))))`, res); hws.getCell(col + r).numFmt = '#,##0.00';
       });
       hws.getCell('S' + r).numFmt = '#,##0.00';
-      if(hasQ){                                       // the quote's rates come from the Pricing quotes sheet, so a correction there reaches every line that uses the quote
-        hws.getCell('V' + r).value = o['Pricing RFQ used'] || null;
-        const PX = c => "'Pricing quotes'!$" + c + '$2:$' + c + '$' + (pqRows.length + 1);
-        const lk = c => `IF($V${r}="","",IFERROR(IF(INDEX(${PX(c)},MATCH($V${r},${PX('A')},0))="","",INDEX(${PX(c)},MATCH($V${r},${PX('A')},0))),""))`;
-        set('O', lk('K'), o['Quoted buy as entered']); set('P', lk('L'), o['Quoted sell as entered']);
-      }
     });
-    HH.forEach((h, i) => { const c = hws.getCell(1, i + 1); c.font = {bold: true}; c.fill = {type: 'pattern', pattern: 'solid', fgColor: {argb: 'FFE2E8F0'}}; c.alignment = {wrapText: true, vertical: 'middle'}; hws.getColumn(i + 1).width = [16, 14, 16, 16, 16, 12, 30, 12, 14, 14, 14, 11, 18, 30, 11, 11, 14, 14, 16, 16, 16, 18][i]; });
+    HH.forEach((h, i) => { const c = hws.getCell(1, i + 1); c.font = {bold: true}; c.fill = {type: 'pattern', pattern: 'solid', fgColor: {argb: 'FFE2E8F0'}}; c.alignment = {wrapText: true, vertical: 'middle'}; hws.getColumn(i + 1).width = [16, 14, 16, 16, 16, 12, 30, 12, 14, 14, 14, 11, 18, 30, 11, 11, 14, 14, 16, 16, 16][i]; });
     hws.getRow(1).height = 32; hws.autoFilter = {from: {row: 1, column: 1}, to: {row: 1, column: HH.length}};
     // the pricing sheet: a typed RFQ on the Condensed sheet is looked up here
     if(hasQ){
-      const pws = wb.addWorksheet('Pricing quotes', {views: [{state: 'frozen', ySplit: 1}]}), nq = pqRows.length, YEL = {type: 'pattern', pattern: 'solid', fgColor: {argb: 'FFFEF9C3'}};
-      pws.addRow(PQ_HEAD);
-      pqRows.forEach((q, i) => { const r = i + 2, row = pws.addRow([q.inq, q.sheet, q.person, q.date, q.type, q.status, q.customer, q.pol, q.pod, q.airline, q.buy, q.sell, q.buy, q.sell]);
-        row.getCell(15).value = withResult ? {formula: `IF(AND(K${r}=M${r},L${r}=N${r}),"","Changed")`, result: ''} : {formula: `IF(AND(K${r}=M${r},L${r}=N${r}),"","Changed")`};
-        row.getCell(11).fill = YEL; row.getCell(12).fill = YEL; });
-      PQ_HEAD.forEach((h, i) => { const c = pws.getCell(1, i + 1); c.font = {bold: true}; c.fill = (i === 10 || i === 11) ? {type: 'pattern', pattern: 'solid', fgColor: {argb: 'FFFDE047'}} : {type: 'pattern', pattern: 'solid', fgColor: {argb: 'FFE2E8F0'}}; c.alignment = {wrapText: true, vertical: 'middle'}; pws.getColumn(i + 1).width = [22, 18, 22, 12, 14, 10, 32, 9, 11, 22, 16, 16, 16, 16, 11][i]; });
-      pws.getColumn(4).numFmt = 'dd-mmm-yyyy'; pws.getRow(1).height = 46; pws.autoFilter = {from: {row: 1, column: 1}, to: {row: 1, column: PQ_HEAD.length}};
-      pws.addConditionalFormatting({ref: 'K2:L' + (nq + 1), rules: [{type: 'expression', priority: 1, formulae: ['$O2="Changed"'], style: {fill: {type: 'pattern', pattern: 'solid', bgColor: {argb: 'FFFCA5A5'}}, font: {bold: true}}}]});
-      pws.getCell('Q1').value = 'Rates changed'; pws.getCell('Q1').font = {bold: true}; pws.getCell('R1').value = withResult ? {formula: `COUNTIF(O2:O${nq + 1},"Changed")`, result: 0} : {formula: `COUNTIF(O2:O${nq + 1},"Changed")`}; pws.getCell('R1').font = {bold: true};
+      const pws = wb.addWorksheet('Pricing quotes', {views: [{state: 'frozen', ySplit: 1}]});
+      pws.addRow(PQ_HEAD); pqRows.forEach(q => pws.addRow([q.inq, q.sheet, q.person, q.date, q.type, q.status, q.customer, q.pol, q.pod, q.airline, q.buy, q.sell]));
+      PQ_HEAD.forEach((h, i) => { const c = pws.getCell(1, i + 1); c.font = {bold: true}; c.fill = {type: 'pattern', pattern: 'solid', fgColor: {argb: 'FFE2E8F0'}}; c.alignment = {wrapText: true, vertical: 'middle'}; pws.getColumn(i + 1).width = [22, 18, 22, 12, 14, 10, 32, 9, 11, 22, 14, 14][i]; });
+      pws.getColumn(4).numFmt = 'dd-mmm-yyyy'; pws.getRow(1).height = 32; pws.autoFilter = {from: {row: 1, column: 1}, to: {row: 1, column: PQ_HEAD.length}};
     }
     // notes sheet
     const ns = wb.addWorksheet('About this file');
@@ -2884,7 +2853,6 @@ async function exportData(){
       ['Register buy amount', 'On the Condensed sheet it is worked out from the Houses sheet: for each house, a register buy above the lump-sum limit is the amount itself, otherwise it is the rate × the chargeable weight, and a master adds its houses together.'],
       ['Total Frt Payable', 'It follows the formulas of the CASS bill breakup block, with the GST and TDS rates from the yellow cells. It differs from the Net payable on the CASS bill wherever CASS used other rates, for example IGST or a lower TDS rate. The Data sheet keeps the CASS figures as billed.'],
       ['Adjustment lines', 'On the Condensed sheet the rate comparisons are left blank for adjustment lines (a reversal and a re-bill), because a net adjustment divided by a weight is not a rate.'],
-      ['Correcting a quoted rate', 'Type over the buy or sell rate on the Pricing quotes sheet (the yellow columns). The original stays beside it and “Changed?” marks the row. Every quoted figure then follows by formula: quoted buy and sell, the margin and the profit against the quote on Condensed, and the quote columns on Data. Status and reasons are as at download.'],
       ['Manual pricing RFQ', 'If the shipment register has no RFQ number for an AWB, type the RFQ number from the pricing sheet in the yellow column “Pricing RFQ - Manual Entry” on the Condensed sheet. On that row the quote columns (Quote RFQ, Pricing team, Pricing sheet, Quote date, Quote type, Quoted buy/kg, Quoted sell/kg, Quoted rates are, and so the margin columns) then come from the Pricing quotes sheet by formula. One RFQ per AWB. A typed RFQ takes the place of the register’s RFQ numbers for that AWB, and a rate above the pricing lump-sum limit is read as a lump sum. “Manual RFQ check” says whether the number was found.'],
       ['Colours', 'Red figures are differences at or above your thresholds (₹' + T.A.toLocaleString('en-IN') + ' for register buy, ₹' + T.Q.toLocaleString('en-IN') + ' for the quote, ₹' + T.B.toLocaleString('en-IN') + ' for booked cost).'],
       [''], ['Column groups'], ...Object.values(DATA_GROUPS).filter((g, i) => COLS.some(C => DATA_GROUPS[C.g] === g)).map(g => [g[0], ({
