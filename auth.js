@@ -9,7 +9,18 @@ function loadUsers(raw) {
     if (separator < 1) throw new Error('APP_USERS entries must use username:scrypt-hash format.');
     const username = entry.slice(0, separator).trim().toLowerCase();
     const hash = entry.slice(separator + 1).trim();
-    const parts = hash.split('
+    const parts = hash.split('$');
+    const n = Number(parts[1]), r = Number(parts[2]), p = Number(parts[3]);
+    const validHash = parts.length === 6 && parts[0] === 'scrypt' &&
+      Number.isSafeInteger(n) && n >= 16384 && n <= 131072 && r === 8 && p === 1 &&
+      /^[A-Za-z0-9_-]{22}$/.test(parts[4] || '') &&
+      /^[A-Za-z0-9_-]{86}$/.test(parts[5] || '') &&
+      Buffer.from(parts[4] || '', 'base64url').length === 16 &&
+      Buffer.from(parts[5] || '', 'base64url').length === 64;
+    if (!/^[a-z0-9._-]{2,64}$/.test(username) || !validHash || users.has(username)) {
+      throw new Error('Invalid account configuration or duplicate username for ' + (username || '(empty username)') + '.');
+    }
+    users.set(username, hash);
   }
   return users;
 }
