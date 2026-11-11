@@ -92,6 +92,15 @@ test('CASS purchase lookup uses the matching bill when invoice numbers repeat', 
   assert.equal(core.findCassInvoice([invoices[0]], { invoiceNo: 'INV-42', bill: 'unknown bill' }), invoices[0]);
 });
 
+test('CASS purchase invoice identity includes bill when invoice numbers repeat', () => {
+  const core = loadCassCore();
+  const a = { invoiceNo: 'INV-42', bill: '123 2026/2027' };
+  const b = { invoiceNo: 'INV-42', bill: '456 2026/2027 adj' };
+  assert.equal(core.sameCassInvoice(a, a), true);
+  assert.equal(core.sameCassInvoice(a, b), false);
+  assert.equal(core.sameCassInvoice({ invoiceNo: 'INV-42' }, { invoiceNo: 'INV-42', bill: 'BILL-2' }), false);
+});
+
 test('CASS consolidates house weights and calculates weighted buy/sell rates', () => {
   const core = loadCassCore();
   const cassRow = {
