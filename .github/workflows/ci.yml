@@ -18,4 +18,5 @@ jobs:
       - run: npm audit --omit=dev
       - run: node --check server.js
       - run: node --check auth.js
+      - run: node scripts/check-html-scripts.js
       - run: npm test
