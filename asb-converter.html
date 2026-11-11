@@ -948,20 +948,32 @@ $('settings').addEventListener('input', function (e) {
     try {
       for (var i = 0; i < files.length; i++) {
         var f = files[i];
-        if (/\.zip$/i.test(f.name)) {
+        if (/\\.zip$/i.test(f.name)) {
           var z = await JSZip.loadAsync(await f.arrayBuffer());
           var names = Object.keys(z.files).filter(function (n) { return !z.files[n].dir; });
           for (var k = 0; k < names.length; k++) {
-            if (/\.pdf$/i.test(names[k])) pdfs.push({ name: names[k].split('/').pop(), buf: await z.files[names[k]].async('arraybuffer') });
+            if (/\\.pdf$/i.test(names[k])) pdfs.push({ name: names[k].split('/').pop(), buf: await z.files[names[k]].async('arraybuffer') });
             else ignored++;
           }
-        } else if (/\.pdf$/i.test(f.name)) { pdfs.push({ name: f.name, buf: await f.arrayBuffer() }); }
+        } else if (/\\.pdf$/i.test(f.name)) { pdfs.push({ name: f.name, buf: await f.arrayBuffer() }); }
         else ignored++;
       }
+
+      // A pilot workbook must use exactly one invoice and one packing list.
+      // Never silently let a later PDF in a ZIP replace an earlier document.
+      var found = {};
       for (var j = 0; j < pdfs.length; j++) {
         var r = await pdfItems(pdfs[j].buf), kind = classify(pdfs[j].name, r.items);
-        if (kind) S.docs[kind] = { name: pdfs[j].name, items: r.items, pages: r.pages };
+        if (!kind) { ignored++; continue; }
+        if (found[kind]) {
+          var label = kind === 'ci' ? 'commercial invoice' : 'packing list';
+          throw new Error('More than one ' + label + ' PDF was found (' + found[kind].name + ' and ' + pdfs[j].name + '). Upload one matching invoice and one matching packing list only. No documents were replaced.');
+        }
+        found[kind] = { name: pdfs[j].name, items: r.items, pages: r.pages };
       }
+
+      if (found.ci) S.docs.ci = found.ci;
+      if (found.pl) S.docs.pl = found.pl;
       S.ignored = ignored;
       chips();
       if (S.docs.ci && S.docs.pl) { build(); $('status').textContent = ''; }
