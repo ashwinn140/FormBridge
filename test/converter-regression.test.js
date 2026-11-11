@@ -16,7 +16,7 @@ function loadCassCore() {
 
 function loadVvdnCore() {
   const html = fs.readFileSync(require.resolve('../vvdn-converter.html'), 'utf8');
-  const match = html.match(/<script id="core">([\\s\\S]*?)<\\/script>/i);
+  const match = html.match(/<script id="core">([\s\S]*?)<\/script>/i);
   assert.ok(match, 'VVDN converter core script exists');
   const context = {};
   vm.runInNewContext(match[1], context);
