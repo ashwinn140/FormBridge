@@ -816,7 +816,7 @@ var FBCORE = (function () {
       assertUniqueKeys(rateRows, 'code', 'exchange-rate currency code');
       assertUniqueKeys(invoiceRows, 'number', 'invoice serial number');
       var rates = {};
-      for (r = 1; r <= lastE; r++) { var code = cellStr(E[enc({ r: r, c: X.eCode })]).trim(), rt = assertPositiveExchangeRate(E[enc({ r: r, c: X.eRate })] && E[enc({ r: r, c: X.eRate })].v, code); rates[code] = rt; }
+      for (r = 1; r <= lastE; r++) { var code = cellStr(E[enc({ r: r, c: X.eCode })]).trim(), rt = assertPositiveExchangeRate(E[enc({ r: r, c: X.eRate })], code); rates[code] = rt; }
       var invCur = {}, invRows = {};
       for (r = 1; r <= lastI; r++) { var k = cellStr(I[enc({ r: r, c: X.iNo })]).trim(); invCur[k] = cellStr(I[enc({ r: r, c: X.iCur })]).trim(); invRows[k] = r; }
       /* expected values from ASB's own numbers */
