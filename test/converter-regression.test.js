@@ -101,6 +101,47 @@ test('CASS purchase lookup uses the matching bill when invoice numbers repeat', 
   assert.equal(core.findCassInvoice([invoices[0]], { invoiceNo: 'INV-42', bill: 'unknown bill' }), invoices[0]);
 });
 
+test('CASS purchase upload preserves credit-note signs and flags commission TDS omitted from freight withholding', () => {
+  const core = loadCassCore();
+  const makePurchase = (netBefore) => {
+    const cassRow = {
+      awb: '123-45678901', invoiceNo: 'INV-1', bill: 'BILL-1', airlineCode: 'ABC',
+      netBefore, netPayable: netBefore + (netBefore < 0 ? -18 : 18),
+      weight: 10, wtCharge: netBefore, otherCharges: 0, commission: 0,
+      gst: { igst: netBefore < 0 ? -18 : 18, cgst: 0, sgst: 0, utgst: 0, gst: netBefore < 0 ? -18 : 18 },
+      tdsFreight: netBefore < 0 ? -2 : 2, tdsComm: netBefore < 0 ? -1 : 1,
+      vendorGstin: 'VENDOR-GST', agentGstin: 'AGENT-GST', adj: false
+    };
+    const cass = { invoices: [{
+      invoiceNo: 'INV-1', bill: 'BILL-1', airlineCode: 'ABC', vendorGstin: 'VENDOR-GST',
+      invoiceDate: '2026-11-01', periodFrom: '2026-11-01', periodTo: '2026-11-30', remitDate: '2026-12-15'
+    }] };
+    const res = { rows: [{
+      cass: cassRow, status: 'ok', company: 'New Globe', issues: [],
+      reg: [{ shipmentNo: 'JOB-1', consol: '', consolJob: '' }]
+    }] };
+    const masters = {
+      vendors: [{ taxId: 'VENDOR-GST', erpName: 'Airline Vendor', branch: 'Mumbai', whCode: 'TDS-FRT' }],
+      branches: [{ gstin: 'AGENT-GST', branch: 'Mumbai' }]
+    };
+    return core.buildPurchase(cass, res, masters, { entryDate: '2026-11-11', postingDate: '2026-11-11' });
+  };
+  const debit = makePurchase(100);
+  assert.equal(debit.rows.length, 1);
+  assert.equal(debit.rows[0].row['DR or CR'], 'DR');
+  assert.equal(debit.rows[0].row['Charge or GL Amount'], 100);
+  assert.equal(debit.rows[0].row['WH Tax Amount'], 2);
+  assert.ok(debit.warnings.some(w => /TDS on commission/.test(w)));
+
+  const credit = makePurchase(-100);
+  assert.equal(credit.rows.length, 1);
+  assert.equal(credit.rows[0].row['DR or CR'], 'CR');
+  assert.equal(credit.rows[0].row['Charge or GL Amount'], 100);
+  assert.equal(credit.rows[0].row['Taxcode1 Amt'], 18);
+  assert.equal(credit.rows[0].row['WH Tax Amount'], 2);
+  assert.ok(credit.warnings.some(w => /TDS on commission/.test(w)));
+});
+
 test('CASS purchase invoice identity includes bill when invoice numbers repeat', () => {
   const core = loadCassCore();
   const a = { invoiceNo: 'INV-42', bill: '123 2026/2027' };
