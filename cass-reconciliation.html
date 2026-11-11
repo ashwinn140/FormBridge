@@ -1353,6 +1353,12 @@ function findCassInvoice(invoices, row) {
   return matches.length === 1 ? matches[0] : null;
 }
 
+/* Invoice numbers may repeat across separate CASS bills; use both fields as the invoice identity. */
+function sameCassInvoice(a, b) {
+  return String(a.invoiceNo || '') === String(b.invoiceNo || '') &&
+    String(a.bill || '') === String(b.bill || '');
+}
+
 const PURCHASE_DEFAULTS = { entryDate: null, postingDate: null, dueMode: 'remit', dueDays: 45, includeAdj: true, commonJobs: {},
   narration: 'BEING AIR FRT CHGS FOR {period} AS PER {airline} AS PER INV.' };
 
@@ -1436,10 +1442,6 @@ function buildPurchase(cass, res, masters, optsIn) {
     rows.push({ row, awb: x.awb, invoiceNo: x.invoiceNo, net: neg ? -abs(x.netBefore) : abs(x.netBefore), gst: neg ? -base.gst : base.gst, note, cr: neg });
   });
 
-  /* Per CASS invoice identity: invoice numbers can repeat across bills, so include the bill key. */
-  const sameCassInvoice = (a, b) =>
-    String(a.invoiceNo || '') === String(b.invoiceNo || '') &&
-    String(a.bill || '') === String(b.bill || '');
   const invoices = cass.invoices.map(inv => {
     const all = res.rows.filter(r => mine(r) && sameCassInvoice(r.cass, inv));
     const inc = rows.filter(r => sameCassInvoice(r, inv)), lf = left.filter(r => sameCassInvoice(r, inv));
