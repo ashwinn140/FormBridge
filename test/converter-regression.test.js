@@ -56,7 +56,7 @@ test('CASS consolidates house weights and calculates weighted buy/sell rates', (
     { awb11: cassRow.awb11, serial: cassRow.serial, shipmentNo: 'JOB-2', weight: 60, buyRate: 20, sellRate: 40, loadCode: 'BOM', dischCode: 'LHR', status: 'Active', consol: 'Consol', shipDate: '2026-11-05', prefix: '123', airline: 'ABC' }
   ];
   const result = core.reconcile(
-    { meta: { periodFrom: '2026-11-01', periodTo: '2026-11-30' }, rows: [cassRow] },
+    { meta: { periodFrom: '2026-11-01', periodTo: '2026-11-30' }, invoices: [{ invoiceNo: 'INV-1', airlineCode: 'ABC', prefix: '123', bill: 'BILL-1' }], rows: [cassRow] },
     [{ company: 'NGL', scope: { company: 'NGL', from: '2026-10-01', to: '2026-11-30' }, rows: regRows }]
   );
   const row = result.rows[0];
