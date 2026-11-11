@@ -114,6 +114,19 @@ test('server protects direct converter URLs and API routes until authenticated',
     });
     assert.equal(expiredAccess.status, 302);
     assert.equal(expiredAccess.headers.get('location'), '/login');
+
+    const expiredLoginPage = await fetch(base + '/login', {
+      headers: { cookie: secondCookie }, redirect: 'manual'
+    });
+    assert.equal(expiredLoginPage.status, 200);
+    assert.match(await expiredLoginPage.text(), /Sign in with your authorised account/);
+
+    const reauthenticated = await fetch(base + '/auth/login', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', origin, cookie: secondCookie },
+      body: JSON.stringify({ username: 'operator', password })
+    });
+    assert.equal(reauthenticated.status, 200);
   } finally {
     await new Promise(resolve => server.close(resolve));
   }
