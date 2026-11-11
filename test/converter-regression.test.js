@@ -6,7 +6,7 @@ const vm = require('node:vm');
 
 function loadCassCore() {
   const html = fs.readFileSync(require.resolve('../cass-reconciliation.html'), 'utf8');
-  const scripts = [...html.matchAll(/<script\\b[^>]*>([\\s\\S]*?)<\\/script>/gi)];
+  const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)];
   const source = scripts.map(x => x[1]).find(x => x.includes('CASS reconciliation core'));
   assert.ok(source, 'CASS core script exists');
   const mod = { exports: {} };
@@ -16,7 +16,7 @@ function loadCassCore() {
 
 function loadAsbCore() {
   const html = fs.readFileSync(require.resolve('../asb-converter.html'), 'utf8');
-  const scripts = [...html.matchAll(/<script\\b[^>]*>([\\s\\S]*?)<\\/script>/gi)];
+  const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)];
   const source = scripts.map(x => x[1]).find(x => x.includes('ASB International converter core'));
   assert.ok(source, 'ASB core script exists');
   const context = {};
