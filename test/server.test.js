@@ -26,6 +26,9 @@ test('server protects direct converter URLs and API routes until authenticated',
     const root = await fetch(base + '/', { redirect: 'manual' });
     assert.equal(root.status, 302);
     assert.equal(root.headers.get('location'), '/login');
+    assert.equal(root.headers.get('x-frame-options'), 'DENY');
+    assert.equal(root.headers.get('x-content-type-options'), 'nosniff');
+    assert.equal(root.headers.get('cache-control'), 'no-store');
 
     const direct = await fetch(base + '/cass-reconciliation.html', { redirect: 'manual' });
     assert.equal(direct.status, 302);
@@ -59,6 +62,11 @@ test('server protects direct converter URLs and API routes until authenticated',
     });
     assert.equal(protectedPage.status, 200);
     assert.match(await protectedPage.text(), /NGL IATA Reconciliation tool/);
+
+    const serverSource = await fetch(base + '/server.js', { headers: { cookie }, redirect: 'manual' });
+    assert.equal(serverSource.status, 404);
+    const packageManifest = await fetch(base + '/package.json', { headers: { cookie }, redirect: 'manual' });
+    assert.equal(packageManifest.status, 404);
 
     const logout = await fetch(base + '/auth/logout', {
       method: 'POST', headers: { origin, cookie }
