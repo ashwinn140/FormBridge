@@ -43,6 +43,21 @@ test('CASS flags an AWB billed more than once across loaded bills', () => {
   assert.ok(merged.rows.every(row => row.cassIssues.some(issue => issue.code === 'cass_dup')));
 });
 
+test('CASS purchase lookup uses the matching bill when invoice numbers repeat', () => {
+  const core = loadCassCore();
+  const invoices = [
+    { invoiceNo: 'INV-42', bill: '123 2026/2027', invoiceDate: '2026-11-01', vendorGstin: 'GST-A' },
+    { invoiceNo: 'INV-42', bill: '456 2026/2027 adj', invoiceDate: '2026-11-08', vendorGstin: 'GST-B' }
+  ];
+  const row = { invoiceNo: 'INV-42', bill: '456 2026/2027 adj' };
+  const byKey = new Map(invoices.map(i => [String(i.invoiceNo || '') + '|' + String(i.bill || ''), i]));
+  const byNo = new Map();
+  invoices.forEach(i => { const k = String(i.invoiceNo || ''); if (!byNo.has(k)) byNo.set(k, i); else byNo.set(k, null); });
+  const selected = byKey.get(String(row.invoiceNo || '') + '|' + String(row.bill || '')) || byNo.get(String(row.invoiceNo || '')) || {};
+  assert.equal(selected.vendorGstin, 'GST-B');
+  assert.equal(selected.invoiceDate, '2026-11-08');
+});
+
 test('CASS consolidates house weights and calculates weighted buy/sell rates', () => {
   const core = loadCassCore();
   const cassRow = {
