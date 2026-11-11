@@ -985,7 +985,7 @@ $('settings').addEventListener('input', function (e) {
 
   /* ---------- reading files ---------- */
   async function pdfItems(buf) {
-    var doc = await pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise;
+    var doc = await pdfjsLib.getDocument({ data: new Uint8Array(buf), isEvalSupported: false }).promise;
     var all = [];
     for (var p = 1; p <= doc.numPages; p++) {
       var page = await doc.getPage(p);
