@@ -22,6 +22,12 @@ test('user configuration rejects plaintext passwords', () => {
   assert.throws(() => loadUsers('staff:plaintext-password'), /Invalid account configuration/);
 });
 
+test('user configuration rejects malformed scrypt hashes and duplicate usernames', () => {
+  const encoded = hashPassword('a sufficiently long test password');
+  assert.throws(() => loadUsers('staff:scrypt$32768$8$1$bad$bad'), /Invalid account configuration/);
+  assert.throws(() => loadUsers(`staff:${encoded},STAFF:${encoded}`), /duplicate username/i);
+});
+
 test('login page escapes server-provided messages', () => {
   const page = makeLoginPage('<script>alert(1)</script>');
   assert.equal(page.includes('<script>alert(1)</script>'), false);
