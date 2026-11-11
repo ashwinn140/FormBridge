@@ -612,6 +612,34 @@ function parseStatementRows(toks) {
   return out;
 }
 
+function combineCassAdjustmentRows(rows) {
+  const byAwb = new Map();
+  rows.forEach(r => {
+    const key = String(r.serial || '');
+    if (!byAwb.has(key)) byAwb.set(key, []);
+    byAwb.get(key).push(r);
+  });
+  const combined = [];
+  byAwb.forEach(g => {
+    const dlRows = g.filter(r => r.sp === 'DL'), adRows = g.filter(r => r.sp === 'AD');
+    const dl = dlRows[0], ad = adRows[0];
+    if (!dl && !ad) { combined.push(...g); return; }
+    const base = Object.assign({}, ad || dl);
+    const sum = k => r2(g.filter(r => r.sp === 'DL' || r.sp === 'AD').reduce((s, r) => s + (isFinite(r[k]) ? r[k] : 0), 0));
+    ['wtCharge', 'otherCharges', 'commission', 'netBefore', 'netPayable', 'taxCol', 'tdsComm', 'tdsFreight'].forEach(k => { base[k] = sum(k); });
+    const gs = g.filter(r => r.gst), gsum = k => r2(gs.reduce((s, r) => s + (isFinite(r.gst[k]) ? r.gst[k] : 0), 0));
+    base.gst = gs.length ? { taxable: gsum('taxable'), total: gsum('total'), cgst: gsum('cgst'), utgst: gsum('utgst'), sgst: gsum('sgst'), igst: gsum('igst'), gst: gsum('gst') } : null;
+    base.sp = 'DL/AD'; base.adj = true; base.adjDL = dl || null; base.adjAD = ad || null;
+    base.weight = ad ? ad.weight : Math.abs(dl.weight);
+    base.rateBasis = ad ? ad.netBefore : null;
+    if (dlRows.length > 1 || adRows.length > 1) {
+      base.cassIssues = (base.cassIssues || []).concat([{ sev: 'warn', code: 'cass_adj_duplicate', msg: 'Multiple DL or AD lines exist for this AWB adjustment; verify the source bill before posting.' }]);
+    }
+    combined.push(base);
+  });
+  return combined;
+}
+
 function parseCass(pages) {
   const warnings = [];
   const joinedAll = pages.map(p => p.join('')).join('');
@@ -670,25 +698,7 @@ function parseCass(pages) {
       return row;
     });
     /* adjustment bills: each AWB has a DL (reversal) and an AD (re-bill) line — net them into one line */
-    const byAwb = {};
-    inv.rows.forEach(r => { (byAwb[r.serial] = byAwb[r.serial] || []).push(r); });
-    const combined = [];
-    Object.keys(byAwb).forEach(serial => {
-      const g = byAwb[serial];
-      const dl = g.find(r => r.sp === 'DL'), ad = g.find(r => r.sp === 'AD');
-      if (!dl && !ad) { combined.push(...g); return; }
-      const base = Object.assign({}, ad || dl);
-      const sum = k => r2(g.filter(r => r.sp === 'DL' || r.sp === 'AD').reduce((s, r) => s + (isFinite(r[k]) ? r[k] : 0), 0));
-      ['wtCharge', 'otherCharges', 'commission', 'netBefore', 'netPayable', 'taxCol', 'tdsComm', 'tdsFreight'].forEach(k => { base[k] = sum(k); });
-      const gs = g.filter(r => r.gst), gsum = k => r2(gs.reduce((s, r) => s + (isFinite(r.gst[k]) ? r.gst[k] : 0), 0));
-      base.gst = gs.length ? { taxable: gsum('taxable'), total: gsum('total'), cgst: gsum('cgst'), utgst: gsum('utgst'), sgst: gsum('sgst'), igst: gsum('igst'), gst: gsum('gst') } : null;
-      base.sp = 'DL/AD'; base.adj = true; base.adjDL = dl || null; base.adjAD = ad || null;
-      base.weight = ad ? ad.weight : null;               // corrected (re-billed) chargeable weight
-      base.rateBasis = ad ? ad.netBefore : null;         // re-billed net before tax, for the rate checks
-      if (!ad) base.weight = Math.abs(dl.weight);
-      combined.push(base);
-    });
-    inv.rows = combined;
+    inv.rows = combineCassAdjustmentRows(inv.rows);
     inv.rows.forEach(row => { seen[row.awb11] = (seen[row.awb11] || 0) + 1; });
     inv.rows.forEach(row => {
       const iss = row.cassIssues;
@@ -1334,6 +1344,21 @@ function parseMaster(aoa, source) {
   return { kind, source, rows };
 }
 
+function findCassInvoice(invoices, row) {
+  const invoiceNo = String(row && row.invoiceNo || '');
+  const bill = String(row && row.bill || '');
+  const exact = invoices.find(i => String(i.invoiceNo || '') === invoiceNo && String(i.bill || '') === bill);
+  if (exact) return exact;
+  const matches = invoices.filter(i => String(i.invoiceNo || '') === invoiceNo);
+  return matches.length === 1 ? matches[0] : null;
+}
+
+/* Invoice numbers may repeat across separate CASS bills; use both fields as the invoice identity. */
+function sameCassInvoice(a, b) {
+  return String(a.invoiceNo || '') === String(b.invoiceNo || '') &&
+    String(a.bill || '') === String(b.bill || '');
+}
+
 const PURCHASE_DEFAULTS = { entryDate: null, postingDate: null, dueMode: 'remit', dueDays: 45, includeAdj: true, commonJobs: {},
   narration: 'BEING AIR FRT CHGS FOR {period} AS PER {airline} AS PER INV.' };
 
@@ -1342,7 +1367,7 @@ function buildPurchase(cass, res, masters, optsIn) {
   const o = Object.assign({}, PURCHASE_DEFAULTS, optsIn || {});
   const vendors = (masters.vendors || []), branches = (masters.branches || []);
   const vByGst = new Map(vendors.map(v => [v.taxId, v])), bByGst = new Map(branches.map(b => [b.gstin, b.branch]));
-  const invByNo = new Map(cass.invoices.map(i => [i.invoiceNo, i]));
+
   const rows = [], left = [], warnings = [];
   const fc = o.forCompany || '';                          // provision entries for the other company: its lines only (found only in its register)
   const mine = rr => !fc || (rr.status === 'othco' && rr.company === fc);
@@ -1354,7 +1379,7 @@ function buildPurchase(cass, res, masters, optsIn) {
 
   res.rows.forEach(rr => {
     if (!mine(rr)) return;
-    const x = rr.cass, inv = invByNo.get(x.invoiceNo) || {};
+    const x = rr.cass, inv = findCassInvoice(cass.invoices, x) || {};
     const base = { awb: x.awb, invoiceNo: x.invoiceNo, airline: x.airlineCode, bill: x.bill, netBefore: x.netBefore, gst: x.gst && isFinite(x.gst.gst) ? x.gst.gst : 0 };
     const out = reason => left.push(Object.assign({ reason, company: rr.company || '', shipment: rr.reg[0] ? rr.reg[0].shipmentNo : '' }, base));
     if (rr.status === 'void') return out('Void AWB, nothing billed');
@@ -1395,6 +1420,10 @@ function buildPurchase(cass, res, masters, optsIn) {
     if (Math.abs(g.igst) > 0.005) { t.c1 = 'IGST'; t.a1 = abs(g.igst); }
     else if (Math.abs(g.cgst) > 0.005 || Math.abs(g.sgst) > 0.005) { t.c1 = 'CGST'; t.a1 = abs(g.cgst); t.c2 = 'SGST'; t.a2 = abs(g.sgst); }
     let wh = {};
+    const tdsComm = x.tdsComm || 0;
+    if (Math.abs(tdsComm) > 0.005) {
+      warnings.push(`${x.awb}: CASS includes TDS on commission (${abs(tdsComm).toFixed(2)}), but the purchase upload only maps freight withholding. Verify the commission-TDS accounting treatment separately.`);
+    }
     const tds = x.tdsFreight || 0;
     if (Math.abs(tds) > 0.005) {
       if (v.whCode && v.whCode !== '-') {
@@ -1414,13 +1443,12 @@ function buildPurchase(cass, res, masters, optsIn) {
       'Ref Type': refType, 'Ref No': refNo, 'Amount ': abs(x.netBefore), 'Start Date': fmtDate(fy[0]), 'End Date': fmtDate(fy[1]),
       'WH Tax Code': wh.code || '', 'WH Tax Percentage': wh.pct == null ? '' : wh.pct, 'WH Tax Taxable': wh.taxable == null ? '' : wh.taxable, 'WH Tax Amount': wh.amt == null ? '' : wh.amt, 'Round Off': PURCHASE_FIXED.roundOff
     });
-    rows.push({ row, awb: x.awb, invoiceNo: x.invoiceNo, net: neg ? -abs(x.netBefore) : abs(x.netBefore), gst: neg ? -base.gst : base.gst, note, cr: neg });
+    rows.push({ row, awb: x.awb, invoiceNo: x.invoiceNo, bill: x.bill, net: neg ? -abs(x.netBefore) : abs(x.netBefore), gst: neg ? -base.gst : base.gst, note, cr: neg });
   });
 
-  /* per CASS invoice: what is in the upload and what is left out */
   const invoices = cass.invoices.map(inv => {
-    const all = res.rows.filter(r => mine(r) && r.cass.invoiceNo === inv.invoiceNo);
-    const inc = rows.filter(r => r.invoiceNo === inv.invoiceNo), lf = left.filter(r => r.invoiceNo === inv.invoiceNo);
+    const all = res.rows.filter(r => mine(r) && sameCassInvoice(r.cass, inv));
+    const inc = rows.filter(r => sameCassInvoice(r, inv)), lf = left.filter(r => sameCassInvoice(r, inv));
     const vend = vByGst.get(inv.vendorGstin);
     return { invoiceNo: inv.invoiceNo, bill: inv.bill, airlineCode: inv.airlineCode, vendor: vend ? vend.erpName : '', vendorBranch: vend ? vend.branch : '', lines: all.length,
       invoiceNet: r2(all.reduce((s, r) => s + r.cass.netBefore, 0)), incLines: inc.length, incNet: r2(inc.reduce((s, r) => s + r.net, 0)), leftLines: lf.length, leftNet: r2(lf.reduce((s, r) => s + r.netBefore, 0)),
@@ -1431,7 +1459,7 @@ function buildPurchase(cass, res, masters, optsIn) {
     totals: { lines: rows.length, net: r2(rows.reduce((s, r) => s + r.net, 0)), gst: r2(rows.reduce((s, r) => s + r.gst, 0)), leftLines: left.length, leftNet: r2(left.reduce((s, r) => s + r.netBefore, 0)) } };
 }
 
-const api = { cleanJob, cleanRfq, parseActual, buildActual, defaultHeads, FREIGHT_HEADS, linkActual, parseCass, mergeCass, parseMaster, buildPurchase, parsePricing, makePricing, pricingPerson, unmappedPrefixes, sharedPrefixes, PRICING_TEAM_DEFAULT, custKey, prefixOf, PURCHASE_HEADERS, PURCHASE_DEFAULTS, fmtDate, parseRegister, rawValue, normH, FIELDS, scopeFromSST, reconcile, DEFAULTS, parseDateLoose, toNum, r2, portCode };
+const api = { combineCassAdjustmentRows, findCassInvoice, sameCassInvoice, cleanJob, cleanRfq, parseActual, buildActual, defaultHeads, FREIGHT_HEADS, linkActual, parseCass, mergeCass, parseMaster, buildPurchase, parsePricing, makePricing, pricingPerson, unmappedPrefixes, sharedPrefixes, PRICING_TEAM_DEFAULT, custKey, prefixOf, PURCHASE_HEADERS, PURCHASE_DEFAULTS, fmtDate, parseRegister, rawValue, normH, FIELDS, scopeFromSST, reconcile, DEFAULTS, parseDateLoose, toNum, r2, portCode };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.CassCore = api;
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>

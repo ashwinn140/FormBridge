@@ -175,7 +175,7 @@ footer{margin-top:26px;text-align:center;color:var(--muted);font-size:.84rem}
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
 /* ASB International converter core: CI + PL (PDF text items) -> 26-sheet shipping-bill upload workbook.
@@ -482,17 +482,29 @@ var FBCORE = (function () {
     m.currency = ci.currency; m.exchangeRate = num(ci.exchangeRate);
     if (!m.currency || !m.exchangeRate) W.push('Exchange rate line ("1 USD = RS ...") not found on the CI.');
 
-    /* items: merge CI rows with PL weights (match by name, else by order) */
+    /* items: match each CI line to one unused PL row, preferring exact descriptions */
+    var usedPlRows = new Set();
     m.items = ci.items.map(function (row, idx) {
-      var plRow = null;
-      pl.rows.forEach(function (p) { if (!plRow && p.name && p.name.toUpperCase() === row.name.toUpperCase()) plRow = p; });
-      if (!plRow && pl.rows[idx] && pl.rows.length === ci.items.length) plRow = pl.rows[idx];
+      var plRow = null, plIndex = -1, positional = false;
+      for (var pi = 0; pi < pl.rows.length; pi++) {
+        var candidate = pl.rows[pi];
+        if (!usedPlRows.has(pi) && candidate.name && row.name &&
+            candidate.name.toUpperCase().trim() === row.name.toUpperCase().trim()) {
+          plRow = candidate; plIndex = pi; break;
+        }
+      }
+      if (!plRow && pl.rows[idx] && pl.rows.length === ci.items.length && !usedPlRows.has(idx)) {
+        plRow = pl.rows[idx]; plIndex = idx; positional = true;
+      }
+      if (plIndex >= 0) usedPlRows.add(plIndex);
       var desc = (row.heading ? row.heading + it.Desc_Suffix + ': ' : '') + row.name;
       var basis = mp.hs[row.hsn] || '';
       var unit = lookup(mp.units, row.unit) || '';
       if (!unit) W.push('Item ' + row.sr + ': unit "' + row.unit + '" has no mapping in the Units table.');
       if (!basis) W.push('Item ' + row.sr + ': HS ' + row.hsn + ' has no SQC rule. Pick WEIGHT or QTY in the HS rules table; the SQC quantity is left blank until you do.');
       if (!plRow) W.push('Item ' + row.sr + ' ("' + row.name + '") not matched to a packing-list row; net weight is blank.');
+      else if (positional && (!plRow.name || !row.name || plRow.name.toUpperCase().trim() !== row.name.toUpperCase().trim()))
+        W.push('Item ' + row.sr + ' ("' + row.name + '") matched to packing-list row ' + (plIndex + 1) + ' by position because the descriptions differ ("' + (plRow.name || 'blank') + '"). Verify the net weight.');
       return {
         sr: row.sr, desc: desc, hsn: row.hsn, qty: num(row.qty), unit: unit, ciUnit: row.unit, price: num(row.rate), perUnit: num(it.Per_Unit_No),
         netWeight: plRow ? plRow.nw : 0, basis: basis, igstRate: num(it.IGST_Rate), amount: num(row.amount)
@@ -717,6 +729,33 @@ var FBCORE = (function () {
   function zFor(c) { var d = decimalsOf(c); return d ? '0.' + new Array(d + 1).join('0') : '0'; }
   function pnum(c) { var n = parseFloat(cellStr(c).replace(/,/g, '').trim()); return isNaN(n) ? null : n; }
 
+  function assertUniqueKeys(rows, key, label) {
+    var seen = new Set();
+    (rows || []).forEach(function (row, i) {
+      var value = String(row && row[key] != null ? row[key] : '').trim();
+      if (!value) throw new Error(label + ' is blank on row ' + (i + 1) + '.');
+      if (seen.has(value)) throw new Error('Duplicate ' + label + ' "' + value + '". Formula generation stopped to avoid an ambiguous lookup.');
+      seen.add(value);
+    });
+    return true;
+  }
+
+  function assertPositiveExchangeRate(value, currency) {
+    var rate = pnum(value);
+    if (rate === null || !isFinite(rate) || rate <= 0) {
+      throw new Error('exchange rate for ' + currency + ' must be a positive number.');
+    }
+    return rate;
+  }
+
+  function assertItemInvoiceReference(invoiceNo, invoiceMap, rowNumber) {
+    var key = String(invoiceNo == null ? '' : invoiceNo).trim();
+    if (!key || !Object.prototype.hasOwnProperty.call(invoiceMap, key)) {
+      throw new Error('item row ' + rowNumber + ' references invoice serial "' + key + '" which is not present on the INVOICES sheet.');
+    }
+    return invoiceMap[key];
+  }
+
   function transformExcel(wb, XLSX, template, cfg, opts) {
     opts = opts || {};
     var enc = XLSX.utils.encode_cell, dec = XLSX.utils.decode_range, encC = XLSX.utils.encode_col;
@@ -771,15 +810,21 @@ var FBCORE = (function () {
       Object.keys(X).forEach(function (k) { if (X[k] < 0) throw new Error('column for ' + k + ' not found.'); });
       var L = function (c) { return encC(c); };
       /* currency -> rate (numbers read before anything is changed) */
+      var rateRows = [], invoiceRows = [];
+      for (var r = 1; r <= lastE; r++) rateRows.push({ code: cellStr(E[enc({ r: r, c: X.eCode })]).trim() });
+      for (r = 1; r <= lastI; r++) invoiceRows.push({ number: cellStr(I[enc({ r: r, c: X.iNo })]).trim() });
+      assertUniqueKeys(rateRows, 'code', 'exchange-rate currency code');
+      assertUniqueKeys(invoiceRows, 'number', 'invoice serial number');
       var rates = {};
-      for (var r = 1; r <= lastE; r++) { var code = cellStr(E[enc({ r: r, c: X.eCode })]).trim(), rt = pnum(E[enc({ r: r, c: X.eRate })]); if (code) { if (rt === null) throw new Error('exchange rate for ' + code + ' is not a number.'); rates[code] = rt; } }
+      for (r = 1; r <= lastE; r++) { var code = cellStr(E[enc({ r: r, c: X.eCode })]).trim(), rt = assertPositiveExchangeRate(E[enc({ r: r, c: X.eRate })], code); rates[code] = rt; }
       var invCur = {}, invRows = {};
-      for (r = 1; r <= lastI; r++) { var k = cellStr(I[enc({ r: r, c: X.iNo })]); invCur[k] = cellStr(I[enc({ r: r, c: X.iCur })]).trim(); invRows[k] = r; }
+      for (r = 1; r <= lastI; r++) { var k = cellStr(I[enc({ r: r, c: X.iNo })]).trim(); invCur[k] = cellStr(I[enc({ r: r, c: X.iCur })]).trim(); invRows[k] = r; }
       /* expected values from ASB's own numbers */
       var items = [], okTax = true, okAmt = true, okRq = true;
       for (r = 1; r <= lastT; r++) {
         var inv = cellStr(T[enc({ r: r, c: tA })]), q = pnum(T[enc({ r: r, c: X.tQ })]), p = pnum(T[enc({ r: r, c: X.tP })]), h = pnum(T[enc({ r: r, c: X.tH })]), tax = pnum(T[enc({ r: r, c: X.tTax })]), rate = pnum(T[enc({ r: r, c: X.tRate })]), amt = pnum(T[enc({ r: r, c: X.tAmt })]);
         if (q === null || p === null || !h) throw new Error('item row ' + (r + 1) + ' has a non-numeric quantity, price or per-unit.');
+        assertItemInvoiceReference(inv, invRows, r + 1);
         var fx = rates[invCur[inv]];
         if (fx === undefined) throw new Error('no exchange rate for currency "' + invCur[inv] + '".');
         var expTax = r2(q * p / h * fx);
@@ -826,7 +871,20 @@ var FBCORE = (function () {
     return { wb: wb, issues: issues, changes: changes, notes: notes, rowCounts: rowCounts, invoiceNo: firstInv };
   }
 
-  return { transformExcel: transformExcel, DEFAULT_CONFIG: DEFAULT_CONFIG, parseCI: parseCI, parsePL: parsePL, buildModel: buildModel, buildWorkbook: buildWorkbook, toLines: toLines, fmtDate: fmtDate };
+  function uniqueDocsByKind(docs) {
+    var found = {};
+    (docs || []).forEach(function (doc) {
+      if (!doc || (doc.kind !== 'ci' && doc.kind !== 'pl')) return;
+      if (found[doc.kind]) {
+        var label = doc.kind === 'ci' ? 'commercial invoice' : 'packing list';
+        throw new Error('More than one ' + label + ' PDF was found (' + found[doc.kind].name + ' and ' + doc.name + '). Upload one matching invoice and one matching packing list only. No documents were replaced.');
+      }
+      found[doc.kind] = doc;
+    });
+    return found;
+  }
+
+  return { assertUniqueKeys: assertUniqueKeys, assertPositiveExchangeRate: assertPositiveExchangeRate, assertItemInvoiceReference: assertItemInvoiceReference, transformExcel: transformExcel, DEFAULT_CONFIG: DEFAULT_CONFIG, parseCI: parseCI, parsePL: parsePL, buildModel: buildModel, buildWorkbook: buildWorkbook, toLines: toLines, fmtDate: fmtDate, uniqueDocsByKind: uniqueDocsByKind };
 })();
 
 
@@ -927,7 +985,7 @@ $('settings').addEventListener('input', function (e) {
 
   /* ---------- reading files ---------- */
   async function pdfItems(buf) {
-    var doc = await pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise;
+    var doc = await pdfjsLib.getDocument({ data: new Uint8Array(buf), isEvalSupported: false }).promise;
     var all = [];
     for (var p = 1; p <= doc.numPages; p++) {
       var page = await doc.getPage(p);
@@ -948,20 +1006,29 @@ $('settings').addEventListener('input', function (e) {
     try {
       for (var i = 0; i < files.length; i++) {
         var f = files[i];
-        if (/\.zip$/i.test(f.name)) {
+        if (/\\.zip$/i.test(f.name)) {
           var z = await JSZip.loadAsync(await f.arrayBuffer());
           var names = Object.keys(z.files).filter(function (n) { return !z.files[n].dir; });
           for (var k = 0; k < names.length; k++) {
-            if (/\.pdf$/i.test(names[k])) pdfs.push({ name: names[k].split('/').pop(), buf: await z.files[names[k]].async('arraybuffer') });
+            if (/\\.pdf$/i.test(names[k])) pdfs.push({ name: names[k].split('/').pop(), buf: await z.files[names[k]].async('arraybuffer') });
             else ignored++;
           }
-        } else if (/\.pdf$/i.test(f.name)) { pdfs.push({ name: f.name, buf: await f.arrayBuffer() }); }
+        } else if (/\\.pdf$/i.test(f.name)) { pdfs.push({ name: f.name, buf: await f.arrayBuffer() }); }
         else ignored++;
       }
+
+      // A pilot workbook must use exactly one invoice and one packing list.
+      // Never silently let a later PDF in a ZIP replace an earlier document.
+      var classified = [];
       for (var j = 0; j < pdfs.length; j++) {
         var r = await pdfItems(pdfs[j].buf), kind = classify(pdfs[j].name, r.items);
-        if (kind) S.docs[kind] = { name: pdfs[j].name, items: r.items, pages: r.pages };
+        if (!kind) { ignored++; continue; }
+        classified.push({ kind: kind, name: pdfs[j].name, items: r.items, pages: r.pages });
       }
+      var found = FBCORE.uniqueDocsByKind(classified);
+
+      if (found.ci) S.docs.ci = found.ci;
+      if (found.pl) S.docs.pl = found.pl;
       S.ignored = ignored;
       chips();
       if (S.docs.ci && S.docs.pl) { build(); $('status').textContent = ''; }
