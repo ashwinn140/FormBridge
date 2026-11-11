@@ -826,7 +826,20 @@ var FBCORE = (function () {
     return { wb: wb, issues: issues, changes: changes, notes: notes, rowCounts: rowCounts, invoiceNo: firstInv };
   }
 
-  return { transformExcel: transformExcel, DEFAULT_CONFIG: DEFAULT_CONFIG, parseCI: parseCI, parsePL: parsePL, buildModel: buildModel, buildWorkbook: buildWorkbook, toLines: toLines, fmtDate: fmtDate };
+  function uniqueDocsByKind(docs) {
+    var found = {};
+    (docs || []).forEach(function (doc) {
+      if (!doc || (doc.kind !== 'ci' && doc.kind !== 'pl')) return;
+      if (found[doc.kind]) {
+        var label = doc.kind === 'ci' ? 'commercial invoice' : 'packing list';
+        throw new Error('More than one ' + label + ' PDF was found (' + found[doc.kind].name + ' and ' + doc.name + '). Upload one matching invoice and one matching packing list only. No documents were replaced.');
+      }
+      found[doc.kind] = doc;
+    });
+    return found;
+  }
+
+  return { transformExcel: transformExcel, DEFAULT_CONFIG: DEFAULT_CONFIG, parseCI: parseCI, parsePL: parsePL, buildModel: buildModel, buildWorkbook: buildWorkbook, toLines: toLines, fmtDate: fmtDate, uniqueDocsByKind: uniqueDocsByKind };
 })();
 
 
@@ -961,16 +974,13 @@ $('settings').addEventListener('input', function (e) {
 
       // A pilot workbook must use exactly one invoice and one packing list.
       // Never silently let a later PDF in a ZIP replace an earlier document.
-      var found = {};
+      var classified = [];
       for (var j = 0; j < pdfs.length; j++) {
         var r = await pdfItems(pdfs[j].buf), kind = classify(pdfs[j].name, r.items);
         if (!kind) { ignored++; continue; }
-        if (found[kind]) {
-          var label = kind === 'ci' ? 'commercial invoice' : 'packing list';
-          throw new Error('More than one ' + label + ' PDF was found (' + found[kind].name + ' and ' + pdfs[j].name + '). Upload one matching invoice and one matching packing list only. No documents were replaced.');
-        }
-        found[kind] = { name: pdfs[j].name, items: r.items, pages: r.pages };
+        classified.push({ kind: kind, name: pdfs[j].name, items: r.items, pages: r.pages });
       }
+      var found = FBCORE.uniqueDocsByKind(classified);
 
       if (found.ci) S.docs.ci = found.ci;
       if (found.pl) S.docs.pl = found.pl;
