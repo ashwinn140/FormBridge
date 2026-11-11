@@ -37,6 +37,11 @@ async function serveToolPage(res, page, next) {
   } catch (err) { next(err); }
 }
 
+function isSessionExpired(sessionData, now = Date.now()) {
+  const createdAt = Number(sessionData?.createdAt);
+  return !Number.isFinite(createdAt) || createdAt <= 0 || now - createdAt >= SESSION_TTL_MS;
+}
+
 function buildApp({ pool, users, sessionStore, sessionSecret = SESSION_SECRET }) {
   const app = express();
   app.disable('x-powered-by');
@@ -61,6 +66,17 @@ function buildApp({ pool, users, sessionStore, sessionSecret = SESSION_SECRET })
     rolling: true,
     cookie: { httpOnly: true, secure: 'auto', sameSite: 'lax', path: '/', maxAge: SESSION_TTL_MS }
   }));
+
+  // Enforce an absolute session lifetime as well as the rolling cookie idle timeout.
+  app.use((req, res, next) => {
+    if (!req.session?.user || !isSessionExpired(req.session)) return next();
+    req.session.destroy(err => {
+      if (err) return next(err);
+      res.clearCookie('fb.sid', { httpOnly: true, secure: req.secure, sameSite: 'lax', path: '/' });
+      if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Session expired. Sign in again.' });
+      res.redirect('/login');
+    });
+  });
 
   app.get('/healthz', async (req, res) => {
     try { await pool.query('SELECT 1'); res.type('text').send('ok'); }
@@ -150,4 +166,4 @@ async function start() {
 }
 
 if (require.main === module) start().catch(err => { console.error(`FormBridge startup blocked: ${err.message}`); process.exit(1); });
-module.exports = { buildApp, sameOrigin };
+module.exports = { buildApp, sameOrigin, isSessionExpired };
