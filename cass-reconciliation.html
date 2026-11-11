@@ -1439,7 +1439,7 @@ function buildPurchase(cass, res, masters, optsIn) {
       'Ref Type': refType, 'Ref No': refNo, 'Amount ': abs(x.netBefore), 'Start Date': fmtDate(fy[0]), 'End Date': fmtDate(fy[1]),
       'WH Tax Code': wh.code || '', 'WH Tax Percentage': wh.pct == null ? '' : wh.pct, 'WH Tax Taxable': wh.taxable == null ? '' : wh.taxable, 'WH Tax Amount': wh.amt == null ? '' : wh.amt, 'Round Off': PURCHASE_FIXED.roundOff
     });
-    rows.push({ row, awb: x.awb, invoiceNo: x.invoiceNo, net: neg ? -abs(x.netBefore) : abs(x.netBefore), gst: neg ? -base.gst : base.gst, note, cr: neg });
+    rows.push({ row, awb: x.awb, invoiceNo: x.invoiceNo, bill: x.bill, net: neg ? -abs(x.netBefore) : abs(x.netBefore), gst: neg ? -base.gst : base.gst, note, cr: neg });
   });
 
   const invoices = cass.invoices.map(inv => {
