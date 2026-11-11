@@ -107,7 +107,7 @@ function buildApp({ pool, users }) {
     if (!sameOrigin(req)) return res.status(403).json({ error: 'Request origin could not be verified.' });
     req.session.destroy(err => {
       if (err) return next(err);
-      res.clearCookie('fb.sid', { httpOnly: true, secure: true, sameSite: 'lax', path: '/' });
+      res.clearCookie('fb.sid', { httpOnly: true, secure: req.secure, sameSite: 'lax', path: '/' });
       res.status(204).end();
     });
   });
