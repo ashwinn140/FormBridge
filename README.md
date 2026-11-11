@@ -40,7 +40,7 @@ Generate `SESSION_SECRET` with a password manager or a cryptographically secure 
 
 ## Deployment notes
 
-This branch is not a production deployment. Configure a separate staging service and its PostgreSQL database before testing. Do not point the current production domain at this branch until browser regression tests and a user acceptance check have passed. Keep `main` unchanged until the pull request is explicitly approved and merged. The current Railway project has only a production environment; create a separate staging environment and persistent PostgreSQL database before configuring these variables. A committed `package-lock.json` is also a production gate for reproducible dependency installs.
+This branch is not a production deployment. Railway currently has a separate `FormBridge-Staging` service and a separate persistent PostgreSQL service, but both are inside the Railway environment named `production`; they are separate services, not a separate Railway environment. The existing `FormBridge` production service remains connected to `main`. Do not point the production domain at the staging service until browser regression tests and user acceptance have passed. Keep `main` unchanged until the pull request is explicitly approved and merged. A committed `package-lock.json` is a production gate for reproducible dependency installs.
 
 ## Tests
 
@@ -52,4 +52,4 @@ npm audit --omit=dev
 npm test
 ```
 
-The current CI suite runs these checks automatically. It includes 24 automated tests; these validate code-level behaviour and synthetic workbook structures, not browser-based regression with real customer files.
+The current CI suite runs these checks automatically. It includes 25 automated tests; these validate code-level behaviour and synthetic workbook structures, not browser-based regression with real customer files. The browser pages use SheetJS 0.20.3 from the official SheetJS CDN; PDF.js remains on 3.11.174 with `isEvalSupported: false` as a mitigation, not a substitute for a supported-version upgrade. Third-party scripts still need vendoring or Subresource Integrity (SRI), and a restrictive Content Security Policy needs a separate compatibility pass because the existing tools contain inline scripts.
