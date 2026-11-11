@@ -1334,6 +1334,15 @@ function parseMaster(aoa, source) {
   return { kind, source, rows };
 }
 
+function findCassInvoice(invoices, row) {
+  const invoiceNo = String(row && row.invoiceNo || '');
+  const bill = String(row && row.bill || '');
+  const exact = invoices.find(i => String(i.invoiceNo || '') === invoiceNo && String(i.bill || '') === bill);
+  if (exact) return exact;
+  const matches = invoices.filter(i => String(i.invoiceNo || '') === invoiceNo);
+  return matches.length === 1 ? matches[0] : null;
+}
+
 const PURCHASE_DEFAULTS = { entryDate: null, postingDate: null, dueMode: 'remit', dueDays: 45, includeAdj: true, commonJobs: {},
   narration: 'BEING AIR FRT CHGS FOR {period} AS PER {airline} AS PER INV.' };
 
@@ -1342,9 +1351,7 @@ function buildPurchase(cass, res, masters, optsIn) {
   const o = Object.assign({}, PURCHASE_DEFAULTS, optsIn || {});
   const vendors = (masters.vendors || []), branches = (masters.branches || []);
   const vByGst = new Map(vendors.map(v => [v.taxId, v])), bByGst = new Map(branches.map(b => [b.gstin, b.branch]));
-  const invByKey = new Map(cass.invoices.map(i => [String(i.invoiceNo || '') + '|' + String(i.bill || ''), i]));
-  const invByNo = new Map();
-  cass.invoices.forEach(i => { const k = String(i.invoiceNo || ''); if (!invByNo.has(k)) invByNo.set(k, i); else invByNo.set(k, null); });
+
   const rows = [], left = [], warnings = [];
   const fc = o.forCompany || '';                          // provision entries for the other company: its lines only (found only in its register)
   const mine = rr => !fc || (rr.status === 'othco' && rr.company === fc);
@@ -1356,8 +1363,7 @@ function buildPurchase(cass, res, masters, optsIn) {
 
   res.rows.forEach(rr => {
     if (!mine(rr)) return;
-    const x = rr.cass;
-    const inv = invByKey.get(String(x.invoiceNo || '') + '|' + String(x.bill || '')) || invByNo.get(String(x.invoiceNo || '')) || {};
+    const x = rr.cass, inv = findCassInvoice(cass.invoices, x) || {};
     const base = { awb: x.awb, invoiceNo: x.invoiceNo, airline: x.airlineCode, bill: x.bill, netBefore: x.netBefore, gst: x.gst && isFinite(x.gst.gst) ? x.gst.gst : 0 };
     const out = reason => left.push(Object.assign({ reason, company: rr.company || '', shipment: rr.reg[0] ? rr.reg[0].shipmentNo : '' }, base));
     if (rr.status === 'void') return out('Void AWB, nothing billed');
@@ -1434,7 +1440,7 @@ function buildPurchase(cass, res, masters, optsIn) {
     totals: { lines: rows.length, net: r2(rows.reduce((s, r) => s + r.net, 0)), gst: r2(rows.reduce((s, r) => s + r.gst, 0)), leftLines: left.length, leftNet: r2(left.reduce((s, r) => s + r.netBefore, 0)) } };
 }
 
-const api = { cleanJob, cleanRfq, parseActual, buildActual, defaultHeads, FREIGHT_HEADS, linkActual, parseCass, mergeCass, parseMaster, buildPurchase, parsePricing, makePricing, pricingPerson, unmappedPrefixes, sharedPrefixes, PRICING_TEAM_DEFAULT, custKey, prefixOf, PURCHASE_HEADERS, PURCHASE_DEFAULTS, fmtDate, parseRegister, rawValue, normH, FIELDS, scopeFromSST, reconcile, DEFAULTS, parseDateLoose, toNum, r2, portCode };
+const api = { findCassInvoice, cleanJob, cleanRfq, parseActual, buildActual, defaultHeads, FREIGHT_HEADS, linkActual, parseCass, mergeCass, parseMaster, buildPurchase, parsePricing, makePricing, pricingPerson, unmappedPrefixes, sharedPrefixes, PRICING_TEAM_DEFAULT, custKey, prefixOf, PURCHASE_HEADERS, PURCHASE_DEFAULTS, fmtDate, parseRegister, rawValue, normH, FIELDS, scopeFromSST, reconcile, DEFAULTS, parseDateLoose, toNum, r2, portCode };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.CassCore = api;
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
