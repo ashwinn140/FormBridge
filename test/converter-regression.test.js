@@ -43,6 +43,41 @@ test('CASS flags an AWB billed more than once across loaded bills', () => {
   assert.ok(merged.rows.every(row => row.cassIssues.some(issue => issue.code === 'cass_dup')));
 });
 
+test('CASS adjustment nets DL reversal and AD re-bill, retaining corrected weight', () => {
+  const core = loadCassCore();
+  const rows = core.combineCassAdjustmentRows([
+    { serial: '12345678', sp: 'DL', weight: 500, wtCharge: -5000, otherCharges: -200, commission: -100, netBefore: -5100, netPayable: -5610, taxCol: -510, tdsComm: 0, tdsFreight: 0, gst: { taxable: -5100, total: -5100, cgst: -255, utgst: 0, sgst: -255, igst: 0, gst: -510 }, cassIssues: [] },
+    { serial: '12345678', sp: 'AD', weight: 600, wtCharge: 6600, otherCharges: 300, commission: 100, netBefore: 6800, netPayable: 7480, taxCol: 680, tdsComm: 0, tdsFreight: 0, gst: { taxable: 6800, total: 6800, cgst: 340, utgst: 0, sgst: 340, igst: 0, gst: 680 }, cassIssues: [] }
+  ]);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].netBefore, 1700);
+  assert.equal(rows[0].netPayable, 1870);
+  assert.equal(rows[0].weight, 600);
+  assert.equal(rows[0].rateBasis, 6800);
+  assert.equal(rows[0].sp, 'DL/AD');
+  assert.equal(rows[0].gst.gst, 170);
+});
+test('CASS credit-only adjustment remains a negative credit with absolute weight', () => {
+  const core = loadCassCore();
+  const rows = core.combineCassAdjustmentRows([
+    { serial: '87654321', sp: 'DL', weight: -250, wtCharge: -2500, otherCharges: 0, commission: 0, netBefore: -2500, netPayable: -2950, taxCol: -450, tdsComm: 0, tdsFreight: 0, gst: { taxable: -2500, total: -2500, cgst: -225, utgst: 0, sgst: -225, igst: 0, gst: -450 }, cassIssues: [] }
+  ]);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].netBefore, -2500);
+  assert.equal(rows[0].netPayable, -2950);
+  assert.equal(rows[0].weight, 250);
+  assert.equal(rows[0].rateBasis, null);
+  assert.equal(rows[0].adjAD, null);
+});
+test('CASS adjustment with repeated DL/AD lines is explicitly flagged', () => {
+  const core = loadCassCore();
+  const base = { serial: '11223344', weight: 100, wtCharge: 100, otherCharges: 0, commission: 0, netBefore: 100, netPayable: 100, taxCol: 0, tdsComm: 0, tdsFreight: 0, cassIssues: [] };
+  const rows = core.combineCassAdjustmentRows([
+    { ...base, sp: 'DL' }, { ...base, sp: 'DL' }, { ...base, sp: 'AD' }
+  ]);
+  assert.equal(rows.length, 1);
+  assert.ok(rows[0].cassIssues.some(i => i.code === 'cass_adj_duplicate'));
+});
 test('CASS purchase lookup uses the matching bill when invoice numbers repeat', () => {
   const core = loadCassCore();
   const invoices = [
