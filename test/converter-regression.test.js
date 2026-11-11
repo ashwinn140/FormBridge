@@ -105,3 +105,45 @@ test('ASB joins invoice and packing-list rows and warns when invoice numbers dif
   assert.equal(model.net, 5);
   assert.ok(model.warnings.some(w => w.includes('Invoice number differs')));
 });
+
+test('ASB maps repeated item descriptions to separate packing-list rows', () => {
+  const core = loadAsbCore();
+  const cfg = JSON.parse(JSON.stringify(core.DEFAULT_CONFIG));
+  const ci = {
+    invoiceNo: 'CI-200', invoiceDate: '04.11.2026', mode: 'AIR',
+    consigneeName: 'Buyer Ltd', consigneeAddress: 'Conakry',
+    consigneeCountryName: 'Guinea', hasBuyer: false, buyerCountryName: '',
+    portOfDischarge: 'CONAKRY', finalDestCountryName: 'Guinea',
+    finalDestination: '', delivery: 'FOB', paymentTerms: 'WITHIN 30 DAYS',
+    currency: 'USD', exchangeRate: '83.2', freightTotal: 0, invoiceTotal: 300,
+    items: [
+      { sr: 1, heading: '', name: 'MOLD A', hsn: '84779000', unit: 'EA', qty: '1', rate: '100', amount: '100' },
+      { sr: 2, heading: '', name: 'MOLD A', hsn: '84779000', unit: 'EA', qty: '2', rate: '100', amount: '200' }
+    ]
+  };
+  const pl = {
+    invoiceNo: 'CI-200',
+    rows: [{ name: 'MOLD A', nw: 2 }, { name: 'MOLD A', nw: 3 }],
+    packagesCount: 1, totalGW: 6, totalNW: 5
+  };
+  const model = core.buildModel(ci, pl, cfg, { GUINEA: 'GN' });
+  assert.deepEqual(model.items.map(x => x.netWeight), [2, 3]);
+});
+
+test('ASB warns when it has to match an invoice line to a differently named packing-list row by position', () => {
+  const core = loadAsbCore();
+  const cfg = JSON.parse(JSON.stringify(core.DEFAULT_CONFIG));
+  const ci = {
+    invoiceNo: 'CI-300', invoiceDate: '04.11.2026', mode: 'AIR',
+    consigneeName: 'Buyer Ltd', consigneeAddress: 'Conakry',
+    consigneeCountryName: 'Guinea', hasBuyer: false, buyerCountryName: '',
+    portOfDischarge: 'CONAKRY', finalDestCountryName: 'Guinea',
+    finalDestination: '', delivery: 'FOB', paymentTerms: 'WITHIN 30 DAYS',
+    currency: 'USD', exchangeRate: '83.2', freightTotal: 0, invoiceTotal: 100,
+    items: [{ sr: 1, heading: '', name: 'MOLD A', hsn: '84779000', unit: 'EA', qty: '1', rate: '100', amount: '100' }]
+  };
+  const pl = { invoiceNo: 'CI-300', rows: [{ name: 'DIFFERENT PRODUCT', nw: 4 }], packagesCount: 1, totalGW: 5, totalNW: 4 };
+  const model = core.buildModel(ci, pl, cfg, { GUINEA: 'GN' });
+  assert.equal(model.items[0].netWeight, 4);
+  assert.ok(model.warnings.some(w => w.includes('matched to packing-list row 1 by position')));
+});
