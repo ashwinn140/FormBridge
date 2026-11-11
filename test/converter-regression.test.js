@@ -158,7 +158,7 @@ test('VVDN CSV builder emits the fixed header width and escapes comma-containing
   core.CONST_FIELDS.forEach(field => { constants[field.k] = field.def; });
   constants.prefix = 'CAMERA, SN-';
   const csv = core.buildCsv([{ desc: 'CAM-001', qty: 2, rate: 12.5 }], constants);
-  const lines = csv.split('\\n');
+  const lines = csv.split(/\r?\n/).filter(Boolean);
   assert.equal(lines.length, 2);
   assert.equal(lines[0].split(',').length, core.HEADER.length);
   assert.ok(lines[1].includes('"CAMERA, SN-CAM-001"'));
