@@ -49,13 +49,12 @@ test('CASS purchase lookup uses the matching bill when invoice numbers repeat', 
     { invoiceNo: 'INV-42', bill: '123 2026/2027', invoiceDate: '2026-11-01', vendorGstin: 'GST-A' },
     { invoiceNo: 'INV-42', bill: '456 2026/2027 adj', invoiceDate: '2026-11-08', vendorGstin: 'GST-B' }
   ];
-  const row = { invoiceNo: 'INV-42', bill: '456 2026/2027 adj' };
-  const byKey = new Map(invoices.map(i => [String(i.invoiceNo || '') + '|' + String(i.bill || ''), i]));
-  const byNo = new Map();
-  invoices.forEach(i => { const k = String(i.invoiceNo || ''); if (!byNo.has(k)) byNo.set(k, i); else byNo.set(k, null); });
-  const selected = byKey.get(String(row.invoiceNo || '') + '|' + String(row.bill || '')) || byNo.get(String(row.invoiceNo || '')) || {};
+  const selected = core.findCassInvoice(invoices, { invoiceNo: 'INV-42', bill: '456 2026/2027 adj' });
   assert.equal(selected.vendorGstin, 'GST-B');
   assert.equal(selected.invoiceDate, '2026-11-08');
+  assert.equal(core.findCassInvoice(invoices, { invoiceNo: 'INV-42', bill: 'unknown bill' }), null);
+  assert.equal(core.findCassInvoice(invoices, { invoiceNo: 'INV-99', bill: 'unknown bill' }), null);
+  assert.equal(core.findCassInvoice([invoices[0]], { invoiceNo: 'INV-42', bill: 'unknown bill' }), invoices[0]);
 });
 
 test('CASS consolidates house weights and calculates weighted buy/sell rates', () => {
