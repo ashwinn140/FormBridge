@@ -1342,7 +1342,9 @@ function buildPurchase(cass, res, masters, optsIn) {
   const o = Object.assign({}, PURCHASE_DEFAULTS, optsIn || {});
   const vendors = (masters.vendors || []), branches = (masters.branches || []);
   const vByGst = new Map(vendors.map(v => [v.taxId, v])), bByGst = new Map(branches.map(b => [b.gstin, b.branch]));
-  const invByNo = new Map(cass.invoices.map(i => [i.invoiceNo, i]));
+  const invByKey = new Map(cass.invoices.map(i => [String(i.invoiceNo || '') + '|' + String(i.bill || ''), i]));
+  const invByNo = new Map();
+  cass.invoices.forEach(i => { const k = String(i.invoiceNo || ''); if (!invByNo.has(k)) invByNo.set(k, i); else invByNo.set(k, null); });
   const rows = [], left = [], warnings = [];
   const fc = o.forCompany || '';                          // provision entries for the other company: its lines only (found only in its register)
   const mine = rr => !fc || (rr.status === 'othco' && rr.company === fc);
@@ -1354,7 +1356,8 @@ function buildPurchase(cass, res, masters, optsIn) {
 
   res.rows.forEach(rr => {
     if (!mine(rr)) return;
-    const x = rr.cass, inv = invByNo.get(x.invoiceNo) || {};
+    const x = rr.cass;
+    const inv = invByKey.get(String(x.invoiceNo || '') + '|' + String(x.bill || '')) || invByNo.get(String(x.invoiceNo || '')) || {};
     const base = { awb: x.awb, invoiceNo: x.invoiceNo, airline: x.airlineCode, bill: x.bill, netBefore: x.netBefore, gst: x.gst && isFinite(x.gst.gst) ? x.gst.gst : 0 };
     const out = reason => left.push(Object.assign({ reason, company: rr.company || '', shipment: rr.reg[0] ? rr.reg[0].shipmentNo : '' }, base));
     if (rr.status === 'void') return out('Void AWB, nothing billed');
