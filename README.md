@@ -31,9 +31,9 @@ Generate `SESSION_SECRET` with a password manager or a cryptographically secure 
 ## Security behaviour
 
 - Every converter page is protected on the server; direct URL access redirects to sign-in.
-- Sessions are stored in PostgreSQL, use an HttpOnly/SameSite cookie, rotate on login, and are destroyed on logout.
+- Sessions are stored in PostgreSQL, use an HttpOnly/SameSite cookie, rotate on login, enforce an absolute eight-hour lifetime, and are destroyed on logout.
 - Passwords are verified with Node's scrypt KDF and timing-safe comparison. Plain-text account entries are rejected.
-- Login attempts are rate-limited; login/logout POST requests require a same-origin request.
+- Login attempts are rate-limited per application process; login/logout POST requests require a same-origin request. Multi-instance production deployments should use a shared rate-limit store.
 - The service fails closed if required auth or database configuration is missing.
 - The health endpoint checks database connectivity and exposes no application data.
 - Converter files are served from an explicit allowlist. Files are still processed locally in the browser; the server does not receive invoice or spreadsheet contents.
