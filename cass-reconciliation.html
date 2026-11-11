@@ -1436,10 +1436,13 @@ function buildPurchase(cass, res, masters, optsIn) {
     rows.push({ row, awb: x.awb, invoiceNo: x.invoiceNo, net: neg ? -abs(x.netBefore) : abs(x.netBefore), gst: neg ? -base.gst : base.gst, note, cr: neg });
   });
 
-  /* per CASS invoice: what is in the upload and what is left out */
+  /* Per CASS invoice identity: invoice numbers can repeat across bills, so include the bill key. */
+  const sameCassInvoice = (a, b) =>
+    String(a.invoiceNo || '') === String(b.invoiceNo || '') &&
+    String(a.bill || '') === String(b.bill || '');
   const invoices = cass.invoices.map(inv => {
-    const all = res.rows.filter(r => mine(r) && r.cass.invoiceNo === inv.invoiceNo);
-    const inc = rows.filter(r => r.invoiceNo === inv.invoiceNo), lf = left.filter(r => r.invoiceNo === inv.invoiceNo);
+    const all = res.rows.filter(r => mine(r) && sameCassInvoice(r.cass, inv));
+    const inc = rows.filter(r => sameCassInvoice(r, inv)), lf = left.filter(r => sameCassInvoice(r, inv));
     const vend = vByGst.get(inv.vendorGstin);
     return { invoiceNo: inv.invoiceNo, bill: inv.bill, airlineCode: inv.airlineCode, vendor: vend ? vend.erpName : '', vendorBranch: vend ? vend.branch : '', lines: all.length,
       invoiceNet: r2(all.reduce((s, r) => s + r.cass.netBefore, 0)), incLines: inc.length, incNet: r2(inc.reduce((s, r) => s + r.net, 0)), leftLines: lf.length, leftNet: r2(lf.reduce((s, r) => s + r.netBefore, 0)),
@@ -1450,7 +1453,7 @@ function buildPurchase(cass, res, masters, optsIn) {
     totals: { lines: rows.length, net: r2(rows.reduce((s, r) => s + r.net, 0)), gst: r2(rows.reduce((s, r) => s + r.gst, 0)), leftLines: left.length, leftNet: r2(left.reduce((s, r) => s + r.netBefore, 0)) } };
 }
 
-const api = { combineCassAdjustmentRows, findCassInvoice, cleanJob, cleanRfq, parseActual, buildActual, defaultHeads, FREIGHT_HEADS, linkActual, parseCass, mergeCass, parseMaster, buildPurchase, parsePricing, makePricing, pricingPerson, unmappedPrefixes, sharedPrefixes, PRICING_TEAM_DEFAULT, custKey, prefixOf, PURCHASE_HEADERS, PURCHASE_DEFAULTS, fmtDate, parseRegister, rawValue, normH, FIELDS, scopeFromSST, reconcile, DEFAULTS, parseDateLoose, toNum, r2, portCode };
+const api = { combineCassAdjustmentRows, findCassInvoice, sameCassInvoice, cleanJob, cleanRfq, parseActual, buildActual, defaultHeads, FREIGHT_HEADS, linkActual, parseCass, mergeCass, parseMaster, buildPurchase, parsePricing, makePricing, pricingPerson, unmappedPrefixes, sharedPrefixes, PRICING_TEAM_DEFAULT, custKey, prefixOf, PURCHASE_HEADERS, PURCHASE_DEFAULTS, fmtDate, parseRegister, rawValue, normH, FIELDS, scopeFromSST, reconcile, DEFAULTS, parseDateLoose, toNum, r2, portCode };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.CassCore = api;
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
