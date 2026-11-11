@@ -54,6 +54,7 @@ function buildApp({ pool, users, sessionStore, sessionSecret = SESSION_SECRET })
     res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
     res.setHeader('X-Robots-Tag', 'noindex, nofollow');
     res.setHeader('Cache-Control', 'no-store');
+    if (req.secure) res.setHeader('Strict-Transport-Security', 'max-age=31536000');
     next();
   });
 
