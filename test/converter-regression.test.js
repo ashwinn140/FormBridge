@@ -209,10 +209,10 @@ test('VVDN CSV builder emits the fixed header width and escapes comma-containing
 
 test('ASB formula generation rejects duplicate invoice serials and currency codes', () => {
   const core = loadAsbCore();
-  assert.equal(core.assertPositiveExchangeRate({ v: '83.25' }, 'USD'), 83.25);
-  assert.throws(() => core.assertPositiveExchangeRate({ v: '0' }, 'USD'), /must be a positive number/);
-  assert.throws(() => core.assertPositiveExchangeRate({ v: '-1.5' }, 'USD'), /must be a positive number/);
-  assert.throws(() => core.assertPositiveExchangeRate({ v: 'not-a-rate' }, 'USD'), /must be a positive number/);
+  assert.equal(core.assertPositiveExchangeRate(vm.runInNewContext("({ v: '83.25' })"), 'USD'), 83.25);
+  assert.throws(() => core.assertPositiveExchangeRate(vm.runInNewContext("({ v: '0' })"), 'USD'), /must be a positive number/);
+  assert.throws(() => core.assertPositiveExchangeRate(vm.runInNewContext("({ v: '-1.5' })"), 'USD'), /must be a positive number/);
+  assert.throws(() => core.assertPositiveExchangeRate(vm.runInNewContext("({ v: 'not-a-rate' })"), 'USD'), /must be a positive number/);
   assert.equal(core.assertItemInvoiceReference('INV-1', { 'INV-1': 2 }, 2), 2);
   assert.throws(() => core.assertItemInvoiceReference('INV-X', { 'INV-1': 2 }, 3), /not present on the INVOICES sheet/);
   assert.throws(() => core.assertItemInvoiceReference('', { 'INV-1': 2 }, 4), /not present on the INVOICES sheet/);
