@@ -74,6 +74,10 @@ function buildApp({ pool, users, sessionStore, sessionSecret = SESSION_SECRET })
     req.session.destroy(err => {
       if (err) return next(err);
       res.clearCookie('fb.sid', { httpOnly: true, secure: req.secure, sameSite: 'lax', path: '/' });
+      // Let sign-in endpoints proceed after clearing an expired session; otherwise
+      // GET /login would redirect back to itself forever.
+      if (req.path === '/login' || req.path === '/auth/login') return next();
+      if (req.path === '/auth/logout') return res.status(204).end();
       if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Session expired. Sign in again.' });
       res.redirect('/login');
     });
