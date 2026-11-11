@@ -37,6 +37,10 @@ test('server protects direct converter URLs and API routes until authenticated',
     assert.equal(root.headers.get('x-frame-options'), 'DENY');
     assert.equal(root.headers.get('x-content-type-options'), 'nosniff');
     assert.equal(root.headers.get('cache-control'), 'no-store');
+    const httpsRoot = await fetch(base + '/', {
+      headers: { 'x-forwarded-proto': 'https' }, redirect: 'manual'
+    });
+    assert.equal(httpsRoot.headers.get('strict-transport-security'), 'max-age=31536000');
 
     const direct = await fetch(base + '/cass-reconciliation.html', { redirect: 'manual' });
     assert.equal(direct.status, 302);
