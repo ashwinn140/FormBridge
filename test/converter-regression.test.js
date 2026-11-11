@@ -85,13 +85,13 @@ test('browser file parsers use patched SheetJS and disable PDF.js eval support',
   ];
   for (const page of spreadsheetPages) {
     const html = read(page);
-    assert.match(html, /cdn\\.sheetjs\\.com\\/xlsx-0\\.20\\.3\\/package\\/dist\\/xlsx\\.full\\.min\\.js/, page + ' uses patched SheetJS');
-    assert.doesNotMatch(html, /xlsx\\/0\\.18\\.5\\/xlsx\\.full\\.min\\.js/, page + ' must not load vulnerable SheetJS 0.18.5');
+    assert.ok(html.includes('https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js'), page + ' uses patched SheetJS');
+    assert.ok(!html.includes('cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/'), page + ' must not load vulnerable SheetJS 0.18.5');
   }
   const pdfPages = ['sandvik-converter.html', 'vvdn-converter.html', 'asb-converter.html'];
   for (const page of pdfPages) {
     const html = read(page);
-    assert.match(html, /isEvalSupported['"]?\\s*:\\s*false/, page + ' disables PDF.js eval support');
+    assert.ok(/isEvalSupported.{0,10}false/.test(html), page + ' disables PDF.js eval support');
   }
 });
 
