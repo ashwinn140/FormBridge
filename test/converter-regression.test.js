@@ -117,6 +117,14 @@ test('CASS consolidates house weights and calculates weighted buy/sell rates', (
   assert.ok(row.issues.some(issue => issue.code === 'consol'));
 });
 
+test('ASB formula generation rejects duplicate invoice serials and currency codes', () => {
+  const core = loadAsbCore();
+  assert.throws(() => core.assertUniqueKeys([{ number: 'INV-1' }, { number: 'INV-1' }], 'number', 'invoice serial number'), /Duplicate invoice serial number/);
+  assert.throws(() => core.assertUniqueKeys([{ code: 'USD' }, { code: 'USD' }], 'code', 'exchange-rate currency code'), /Duplicate exchange-rate currency code/);
+  assert.throws(() => core.assertUniqueKeys([{ number: 'INV-1' }, { number: '' }], 'number', 'invoice serial number'), /is blank/);
+  assert.equal(core.assertUniqueKeys([{ code: 'USD' }, { code: 'INR' }], 'code', 'currency'), true);
+});
+
 test('ASB rejects duplicate commercial invoices or packing lists instead of overwriting', () => {
   const core = loadAsbCore();
   const ci = { kind: 'ci', name: 'invoice-1.pdf' };
