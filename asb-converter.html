@@ -482,17 +482,29 @@ var FBCORE = (function () {
     m.currency = ci.currency; m.exchangeRate = num(ci.exchangeRate);
     if (!m.currency || !m.exchangeRate) W.push('Exchange rate line ("1 USD = RS ...") not found on the CI.');
 
-    /* items: merge CI rows with PL weights (match by name, else by order) */
+    /* items: match each CI line to one unused PL row, preferring exact descriptions */
+    var usedPlRows = new Set();
     m.items = ci.items.map(function (row, idx) {
-      var plRow = null;
-      pl.rows.forEach(function (p) { if (!plRow && p.name && p.name.toUpperCase() === row.name.toUpperCase()) plRow = p; });
-      if (!plRow && pl.rows[idx] && pl.rows.length === ci.items.length) plRow = pl.rows[idx];
+      var plRow = null, plIndex = -1, positional = false;
+      for (var pi = 0; pi < pl.rows.length; pi++) {
+        var candidate = pl.rows[pi];
+        if (!usedPlRows.has(pi) && candidate.name && row.name &&
+            candidate.name.toUpperCase().trim() === row.name.toUpperCase().trim()) {
+          plRow = candidate; plIndex = pi; break;
+        }
+      }
+      if (!plRow && pl.rows[idx] && pl.rows.length === ci.items.length && !usedPlRows.has(idx)) {
+        plRow = pl.rows[idx]; plIndex = idx; positional = true;
+      }
+      if (plIndex >= 0) usedPlRows.add(plIndex);
       var desc = (row.heading ? row.heading + it.Desc_Suffix + ': ' : '') + row.name;
       var basis = mp.hs[row.hsn] || '';
       var unit = lookup(mp.units, row.unit) || '';
       if (!unit) W.push('Item ' + row.sr + ': unit "' + row.unit + '" has no mapping in the Units table.');
       if (!basis) W.push('Item ' + row.sr + ': HS ' + row.hsn + ' has no SQC rule. Pick WEIGHT or QTY in the HS rules table; the SQC quantity is left blank until you do.');
       if (!plRow) W.push('Item ' + row.sr + ' ("' + row.name + '") not matched to a packing-list row; net weight is blank.');
+      else if (positional && (!plRow.name || !row.name || plRow.name.toUpperCase().trim() !== row.name.toUpperCase().trim()))
+        W.push('Item ' + row.sr + ' ("' + row.name + '") matched to packing-list row ' + (plIndex + 1) + ' by position because the descriptions differ ("' + (plRow.name || 'blank') + '"). Verify the net weight.');
       return {
         sr: row.sr, desc: desc, hsn: row.hsn, qty: num(row.qty), unit: unit, ciUnit: row.unit, price: num(row.rate), perUnit: num(it.Per_Unit_No),
         netWeight: plRow ? plRow.nw : 0, basis: basis, igstRate: num(it.IGST_Rate), amount: num(row.amount)
