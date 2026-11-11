@@ -1420,6 +1420,10 @@ function buildPurchase(cass, res, masters, optsIn) {
     if (Math.abs(g.igst) > 0.005) { t.c1 = 'IGST'; t.a1 = abs(g.igst); }
     else if (Math.abs(g.cgst) > 0.005 || Math.abs(g.sgst) > 0.005) { t.c1 = 'CGST'; t.a1 = abs(g.cgst); t.c2 = 'SGST'; t.a2 = abs(g.sgst); }
     let wh = {};
+    const tdsComm = x.tdsComm || 0;
+    if (Math.abs(tdsComm) > 0.005) {
+      warnings.push(`${x.awb}: CASS includes TDS on commission (${abs(tdsComm).toFixed(2)}), but the purchase upload only maps freight withholding. Verify the commission-TDS accounting treatment separately.`);
+    }
     const tds = x.tdsFreight || 0;
     if (Math.abs(tds) > 0.005) {
       if (v.whCode && v.whCode !== '-') {
