@@ -33,6 +33,47 @@ function loadAsbCore() {
   return context.FBCORE;
 }
 
+function loadAsbTemplate() {
+  const html = fs.readFileSync(require.resolve('../asb-converter.html'), 'utf8');
+  const line = html.split('\\n').find(x => x.startsWith('var TEMPLATE = '));
+  assert.ok(line, 'ASB 26-sheet template declaration exists');
+  return vm.runInNewContext(line.slice('var TEMPLATE = '.length, -1));
+}
+
+function makeTemplateWorkbook(template) {
+  const colName = n => {
+    let out = '';
+    for (n += 1; n; n = Math.floor((n - 1) / 26)) out = String.fromCharCode(65 + ((n - 1) % 26)) + out;
+    return out;
+  };
+  const colNumber = name => {
+    let out = 0;
+    for (const ch of name) out = out * 26 + ch.charCodeAt(0) - 64;
+    return out - 1;
+  };
+  const encodeCell = ({ r, c }) => colName(c) + (r + 1);
+  const decodeRange = ref => {
+    const [a, b = a] = ref.split(':');
+    const parse = cell => {
+      const m = cell.match(/^([A-Z]+)(\\d+)$/);
+      return { c: colNumber(m[1]), r: Number(m[2]) - 1 };
+    };
+    return { s: parse(a), e: parse(b) };
+  };
+  const Sheets = {};
+  template.forEach(([name, headers]) => {
+    const ws = {};
+    headers.forEach((h, c) => { ws[encodeCell({ r: 0, c })] = { t: 's', v: h }; });
+    ws['!ref'] = 'A1:' + colName(headers.length - 1) + '1';
+    Sheets[name] = ws;
+  });
+  return {
+    Sheets,
+    SheetNames: template.map(x => x[0]),
+    XLSX: { utils: { encode_cell: encodeCell, decode_range: decodeRange, encode_col: colName } }
+  };
+}
+
 test('CASS parses negative amounts represented with a trailing minus', () => {
   const core = loadCassCore();
   assert.equal(core.toNum('1,234.50-'), -1234.5);
@@ -205,6 +246,27 @@ test('VVDN CSV builder emits the fixed header width and escapes comma-containing
   assert.ok(lines[1].includes('"CAMERA, SN-CAM-001"'));
   assert.ok(lines[1].includes(',2,'));
   assert.ok(lines[1].includes(',12.5,'));
+});
+
+test('ASB 26-sheet structure validator accepts the template and blocks missing or altered sheets', () => {
+  const core = loadAsbCore();
+  const template = loadAsbTemplate();
+  assert.equal(template.length, 26);
+  const valid = makeTemplateWorkbook(template);
+  const ok = core.transformExcel(valid, valid.XLSX, template, core.DEFAULT_CONFIG, { formulas: false });
+  assert.equal(ok.issues.length, 0);
+  assert.equal(ok.rowCounts.length, 26);
+
+  const missing = makeTemplateWorkbook(template);
+  delete missing.Sheets.ITEMS;
+  missing.SheetNames = missing.SheetNames.filter(x => x !== 'ITEMS');
+  const missingResult = core.transformExcel(missing, missing.XLSX, template, core.DEFAULT_CONFIG, { formulas: false });
+  assert.ok(missingResult.issues.some(x => /Sheet "ITEMS" is missing/.test(x)));
+
+  const altered = makeTemplateWorkbook(template);
+  altered.Sheets.GENERAL.A1.v = 'Wrong_Header';
+  const alteredResult = core.transformExcel(altered, altered.XLSX, template, core.DEFAULT_CONFIG, { formulas: false });
+  assert.ok(alteredResult.issues.some(x => /expected "TransportMode" but found "Wrong_Header"/.test(x)));
 });
 
 test('ASB formula generation rejects duplicate invoice serials and currency codes', () => {
