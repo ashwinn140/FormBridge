@@ -14,6 +14,15 @@ function loadCassCore() {
   return mod.exports;
 }
 
+function loadVvdnCore() {
+  const html = fs.readFileSync(require.resolve('../vvdn-converter.html'), 'utf8');
+  const match = html.match(/<script id="core">([\\s\\S]*?)<\\/script>/i);
+  assert.ok(match, 'VVDN converter core script exists');
+  const context = {};
+  vm.runInNewContext(match[1], context);
+  return context;
+}
+
 function loadAsbCore() {
   const html = fs.readFileSync(require.resolve('../asb-converter.html'), 'utf8');
   const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)];
@@ -124,6 +133,37 @@ test('CASS consolidates house weights and calculates weighted buy/sell rates', (
   assert.equal(row.rates.buyAmt, 1600);
   assert.equal(row.rates.gainAmt, 1100);
   assert.ok(row.issues.some(issue => issue.code === 'consol'));
+});
+
+test('VVDN parser reads device serial rows and reports a missing header', () => {
+  const core = loadVvdnCore();
+  const parsed = core.parseSheet([
+    ['VVDN Export Data'],
+    ['S.No', 'Device SN', 'Quantity', 'Unit Price', 'Amount'],
+    [1, 'CAM-001', 2, 12.5, 25],
+    [2, 'CAM-002', 1, 20, 20]
+  ]);
+  assert.equal(parsed.error, null);
+  assert.equal(parsed.lines.length, 2);
+  assert.equal(parsed.lines[0].desc, 'CAM-001');
+  assert.equal(parsed.lines[0].qty, 2);
+  assert.equal(parsed.lines[0].rate, 12.5);
+  assert.equal(parsed.lines[0].amount, 25);
+  assert.match(core.parseSheet([['No matching columns']]).error, /Could not find the header row/);
+});
+
+test('VVDN CSV builder emits the fixed header width and escapes comma-containing descriptions', () => {
+  const core = loadVvdnCore();
+  const constants = {};
+  core.CONST_FIELDS.forEach(field => { constants[field.k] = field.def; });
+  constants.prefix = 'CAMERA, SN-';
+  const csv = core.buildCsv([{ desc: 'CAM-001', qty: 2, rate: 12.5 }], constants);
+  const lines = csv.split('\\n');
+  assert.equal(lines.length, 2);
+  assert.equal(lines[0].split(',').length, core.HEADER.length);
+  assert.ok(lines[1].includes('"CAMERA, SN-CAM-001"'));
+  assert.ok(lines[1].includes(',2,'));
+  assert.ok(lines[1].includes(',12.5,'));
 });
 
 test('ASB formula generation rejects duplicate invoice serials and currency codes', () => {
