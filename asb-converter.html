@@ -740,6 +740,22 @@ var FBCORE = (function () {
     return true;
   }
 
+  function assertPositiveExchangeRate(value, currency) {
+    var rate = pnum(value);
+    if (rate === null || !isFinite(rate) || rate <= 0) {
+      throw new Error('exchange rate for ' + currency + ' must be a positive number.');
+    }
+    return rate;
+  }
+
+  function assertItemInvoiceReference(invoiceNo, invoiceMap, rowNumber) {
+    var key = String(invoiceNo == null ? '' : invoiceNo).trim();
+    if (!key || !Object.prototype.hasOwnProperty.call(invoiceMap, key)) {
+      throw new Error('item row ' + rowNumber + ' references invoice serial "' + key + '" which is not present on the INVOICES sheet.');
+    }
+    return invoiceMap[key];
+  }
+
   function transformExcel(wb, XLSX, template, cfg, opts) {
     opts = opts || {};
     var enc = XLSX.utils.encode_cell, dec = XLSX.utils.decode_range, encC = XLSX.utils.encode_col;
@@ -800,7 +816,7 @@ var FBCORE = (function () {
       assertUniqueKeys(rateRows, 'code', 'exchange-rate currency code');
       assertUniqueKeys(invoiceRows, 'number', 'invoice serial number');
       var rates = {};
-      for (r = 1; r <= lastE; r++) { var code = cellStr(E[enc({ r: r, c: X.eCode })]).trim(), rt = pnum(E[enc({ r: r, c: X.eRate })]); if (rt === null) throw new Error('exchange rate for ' + code + ' is not a number.'); rates[code] = rt; }
+      for (r = 1; r <= lastE; r++) { var code = cellStr(E[enc({ r: r, c: X.eCode })]).trim(), rt = assertPositiveExchangeRate(E[enc({ r: r, c: X.eRate })] && E[enc({ r: r, c: X.eRate })].v, code); rates[code] = rt; }
       var invCur = {}, invRows = {};
       for (r = 1; r <= lastI; r++) { var k = cellStr(I[enc({ r: r, c: X.iNo })]).trim(); invCur[k] = cellStr(I[enc({ r: r, c: X.iCur })]).trim(); invRows[k] = r; }
       /* expected values from ASB's own numbers */
@@ -808,6 +824,7 @@ var FBCORE = (function () {
       for (r = 1; r <= lastT; r++) {
         var inv = cellStr(T[enc({ r: r, c: tA })]), q = pnum(T[enc({ r: r, c: X.tQ })]), p = pnum(T[enc({ r: r, c: X.tP })]), h = pnum(T[enc({ r: r, c: X.tH })]), tax = pnum(T[enc({ r: r, c: X.tTax })]), rate = pnum(T[enc({ r: r, c: X.tRate })]), amt = pnum(T[enc({ r: r, c: X.tAmt })]);
         if (q === null || p === null || !h) throw new Error('item row ' + (r + 1) + ' has a non-numeric quantity, price or per-unit.');
+        assertItemInvoiceReference(inv, invRows, r + 1);
         var fx = rates[invCur[inv]];
         if (fx === undefined) throw new Error('no exchange rate for currency "' + invCur[inv] + '".');
         var expTax = r2(q * p / h * fx);
@@ -867,7 +884,7 @@ var FBCORE = (function () {
     return found;
   }
 
-  return { assertUniqueKeys: assertUniqueKeys, transformExcel: transformExcel, DEFAULT_CONFIG: DEFAULT_CONFIG, parseCI: parseCI, parsePL: parsePL, buildModel: buildModel, buildWorkbook: buildWorkbook, toLines: toLines, fmtDate: fmtDate, uniqueDocsByKind: uniqueDocsByKind };
+  return { assertUniqueKeys: assertUniqueKeys, assertPositiveExchangeRate: assertPositiveExchangeRate, assertItemInvoiceReference: assertItemInvoiceReference, transformExcel: transformExcel, DEFAULT_CONFIG: DEFAULT_CONFIG, parseCI: parseCI, parsePL: parsePL, buildModel: buildModel, buildWorkbook: buildWorkbook, toLines: toLines, fmtDate: fmtDate, uniqueDocsByKind: uniqueDocsByKind };
 })();
 
 
