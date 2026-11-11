@@ -2,8 +2,16 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const session = require('express-session');
-const { buildApp } = require('../server');
+const { buildApp, isSessionExpired } = require('../server');
 const { hashPassword } = require('../auth');
+
+test('session lifetime is absolute and missing creation timestamps are rejected', () => {
+  const now = 2_000_000_000_000;
+  assert.equal(isSessionExpired({ createdAt: now - 60_000 }, now), false);
+  assert.equal(isSessionExpired({ createdAt: now - (8 * 60 * 60 * 1000) }, now), true);
+  assert.equal(isSessionExpired({}, now), true);
+  assert.equal(isSessionExpired({ createdAt: 'not-a-timestamp' }, now), true);
+});
 
 test('server protects direct converter URLs and API routes until authenticated', async () => {
   const password = 'test-only-password-that-is-long-enough';
