@@ -62,7 +62,7 @@ module.exports = { loadUsers, hashPassword, verifyPassword, DUMMY_HASH, makeLogi
       Buffer.from(parts[4] || '', 'base64url').length === 16 &&
       Buffer.from(parts[5] || '', 'base64url').length === 64;
     if (!/^[a-z0-9._-]{2,64}$/.test(username) || !validHash || users.has(username)) {
-      throw new Error(`Invalid or duplicate account configuration for ${username || '(empty username)'}.`);
+      throw new Error(`Invalid account configuration or duplicate username for ${username || '(empty username)'}.`);
     }
     users.set(username, hash);
   }
