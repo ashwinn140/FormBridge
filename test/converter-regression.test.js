@@ -209,6 +209,13 @@ test('VVDN CSV builder emits the fixed header width and escapes comma-containing
 
 test('ASB formula generation rejects duplicate invoice serials and currency codes', () => {
   const core = loadAsbCore();
+  assert.equal(core.assertPositiveExchangeRate('83.25', 'USD'), 83.25);
+  assert.throws(() => core.assertPositiveExchangeRate('0', 'USD'), /must be a positive number/);
+  assert.throws(() => core.assertPositiveExchangeRate('-1.5', 'USD'), /must be a positive number/);
+  assert.throws(() => core.assertPositiveExchangeRate('not-a-rate', 'USD'), /must be a positive number/);
+  assert.equal(core.assertItemInvoiceReference('INV-1', { 'INV-1': 2 }, 2), 2);
+  assert.throws(() => core.assertItemInvoiceReference('INV-X', { 'INV-1': 2 }, 3), /not present on the INVOICES sheet/);
+  assert.throws(() => core.assertItemInvoiceReference('', { 'INV-1': 2 }, 4), /not present on the INVOICES sheet/);
   assert.throws(() => core.assertUniqueKeys([{ number: 'INV-1' }, { number: 'INV-1' }], 'number', 'invoice serial number'), /Duplicate invoice serial number/);
   assert.throws(() => core.assertUniqueKeys([{ code: 'USD' }, { code: 'USD' }], 'code', 'exchange-rate currency code'), /Duplicate exchange-rate currency code/);
   assert.throws(() => core.assertUniqueKeys([{ number: 'INV-1' }, { number: '' }], 'number', 'invoice serial number'), /is blank/);
