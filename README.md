@@ -40,10 +40,16 @@ Generate `SESSION_SECRET` with a password manager or a cryptographically secure 
 
 ## Deployment notes
 
-This branch is not a production deployment. Configure a separate staging service and its PostgreSQL database before testing. Do not point the current production domain at this branch until browser regression tests and a user acceptance check have passed. Keep `main` unchanged until the pull request is explicitly approved and merged.
+This branch is not a production deployment. Configure a separate staging service and its PostgreSQL database before testing. Do not point the current production domain at this branch until browser regression tests and a user acceptance check have passed. Keep `main` unchanged until the pull request is explicitly approved and merged. The current Railway project has only a production environment; create a separate staging environment and persistent PostgreSQL database before configuring these variables. A committed `package-lock.json` is also a production gate for reproducible dependency installs.
 
 ## Tests
 
 ```bash
+node --check server.js
+node --check auth.js
+node scripts/check-html-scripts.js
+npm audit --omit=dev
 npm test
 ```
+
+The current CI suite runs these checks automatically. It includes 24 automated tests; these validate code-level behaviour and synthetic workbook structures, not browser-based regression with real customer files.
