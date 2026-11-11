@@ -37,7 +37,7 @@ async function serveToolPage(res, page, next) {
   } catch (err) { next(err); }
 }
 
-function buildApp({ pool, users }) {
+function buildApp({ pool, users, sessionStore }) {
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', 1);
@@ -54,7 +54,7 @@ function buildApp({ pool, users }) {
 
   app.use(session({
     name: 'fb.sid',
-    store: new PgSession({ pool, tableName: 'formbridge_sessions', createTableIfMissing: true, pruneSessionInterval: 15 * 60 }),
+    store: sessionStore || new PgSession({ pool, tableName: 'formbridge_sessions', createTableIfMissing: true, pruneSessionInterval: 15 * 60 }),
     secret: SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
