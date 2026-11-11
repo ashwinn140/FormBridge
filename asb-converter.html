@@ -729,6 +729,17 @@ var FBCORE = (function () {
   function zFor(c) { var d = decimalsOf(c); return d ? '0.' + new Array(d + 1).join('0') : '0'; }
   function pnum(c) { var n = parseFloat(cellStr(c).replace(/,/g, '').trim()); return isNaN(n) ? null : n; }
 
+  function assertUniqueKeys(rows, key, label) {
+    var seen = new Set();
+    (rows || []).forEach(function (row, i) {
+      var value = String(row && row[key] != null ? row[key] : '').trim();
+      if (!value) throw new Error(label + ' is blank on row ' + (i + 1) + '.');
+      if (seen.has(value)) throw new Error('Duplicate ' + label + ' "' + value + '". Formula generation stopped to avoid an ambiguous lookup.');
+      seen.add(value);
+    });
+    return true;
+  }
+
   function transformExcel(wb, XLSX, template, cfg, opts) {
     opts = opts || {};
     var enc = XLSX.utils.encode_cell, dec = XLSX.utils.decode_range, encC = XLSX.utils.encode_col;
@@ -783,10 +794,15 @@ var FBCORE = (function () {
       Object.keys(X).forEach(function (k) { if (X[k] < 0) throw new Error('column for ' + k + ' not found.'); });
       var L = function (c) { return encC(c); };
       /* currency -> rate (numbers read before anything is changed) */
+      var rateRows = [], invoiceRows = [];
+      for (var r = 1; r <= lastE; r++) rateRows.push({ code: cellStr(E[enc({ r: r, c: X.eCode })]).trim() });
+      for (r = 1; r <= lastI; r++) invoiceRows.push({ number: cellStr(I[enc({ r: r, c: X.iNo })]).trim() });
+      assertUniqueKeys(rateRows, 'code', 'exchange-rate currency code');
+      assertUniqueKeys(invoiceRows, 'number', 'invoice serial number');
       var rates = {};
-      for (var r = 1; r <= lastE; r++) { var code = cellStr(E[enc({ r: r, c: X.eCode })]).trim(), rt = pnum(E[enc({ r: r, c: X.eRate })]); if (code) { if (rt === null) throw new Error('exchange rate for ' + code + ' is not a number.'); rates[code] = rt; } }
+      for (r = 1; r <= lastE; r++) { var code = cellStr(E[enc({ r: r, c: X.eCode })]).trim(), rt = pnum(E[enc({ r: r, c: X.eRate })]); if (rt === null) throw new Error('exchange rate for ' + code + ' is not a number.'); rates[code] = rt; }
       var invCur = {}, invRows = {};
-      for (r = 1; r <= lastI; r++) { var k = cellStr(I[enc({ r: r, c: X.iNo })]); invCur[k] = cellStr(I[enc({ r: r, c: X.iCur })]).trim(); invRows[k] = r; }
+      for (r = 1; r <= lastI; r++) { var k = cellStr(I[enc({ r: r, c: X.iNo })]).trim(); invCur[k] = cellStr(I[enc({ r: r, c: X.iCur })]).trim(); invRows[k] = r; }
       /* expected values from ASB's own numbers */
       var items = [], okTax = true, okAmt = true, okRq = true;
       for (r = 1; r <= lastT; r++) {
@@ -851,7 +867,7 @@ var FBCORE = (function () {
     return found;
   }
 
-  return { transformExcel: transformExcel, DEFAULT_CONFIG: DEFAULT_CONFIG, parseCI: parseCI, parsePL: parsePL, buildModel: buildModel, buildWorkbook: buildWorkbook, toLines: toLines, fmtDate: fmtDate, uniqueDocsByKind: uniqueDocsByKind };
+  return { assertUniqueKeys: assertUniqueKeys, transformExcel: transformExcel, DEFAULT_CONFIG: DEFAULT_CONFIG, parseCI: parseCI, parsePL: parsePL, buildModel: buildModel, buildWorkbook: buildWorkbook, toLines: toLines, fmtDate: fmtDate, uniqueDocsByKind: uniqueDocsByKind };
 })();
 
 
