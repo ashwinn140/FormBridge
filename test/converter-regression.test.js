@@ -35,7 +35,7 @@ function loadAsbCore() {
 
 function loadAsbTemplate() {
   const html = fs.readFileSync(require.resolve('../asb-converter.html'), 'utf8');
-  const line = html.split('\\n').find(x => x.startsWith('var TEMPLATE = '));
+  const line = html.split('\n').find(x => x.startsWith('var TEMPLATE = '));
   assert.ok(line, 'ASB 26-sheet template declaration exists');
   return vm.runInNewContext(line.slice('var TEMPLATE = '.length, -1));
 }
@@ -55,7 +55,7 @@ function makeTemplateWorkbook(template) {
   const decodeRange = ref => {
     const [a, b = a] = ref.split(':');
     const parse = cell => {
-      const m = cell.match(/^([A-Z]+)(\\d+)$/);
+      const m = cell.match(/^([A-Z]+)(\d+)$/);
       return { c: colNumber(m[1]), r: Number(m[2]) - 1 };
     };
     return { s: parse(a), e: parse(b) };
