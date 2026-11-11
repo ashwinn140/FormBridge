@@ -10,7 +10,8 @@ test('server protects direct converter URLs and API routes until authenticated',
   const app = buildApp({
     pool: { query: async () => ({ rows: [{ ok: 1 }] }) },
     users: new Map([['operator', hashPassword(password)]]),
-    sessionStore: new session.MemoryStore()
+    sessionStore: new session.MemoryStore(),
+    sessionSecret: 'test-only-session-secret-at-least-32-characters'
   });
   const server = app.listen(0, '127.0.0.1');
   await new Promise((resolve, reject) => {
