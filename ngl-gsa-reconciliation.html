@@ -997,7 +997,8 @@ function reconcile(cass, registers, optsIn) {
   const gainAmt = r2(gl.reduce((s, x) => s + x.rates.gainAmt, 0)), sellAmt = r2(gl.reduce((s, x) => s + x.rates.sellAmt, 0));
   const summary = { lines: out.length, ok: cnt('ok'), review: cnt('review'), exception: cnt('exception'), othco: cnt('othco'), missing: cnt('missing'), void: cnt('void'),
     regOnlyDue: regOnly.filter(x => x.kind === 'due').length, regOnlyNext: regOnly.filter(x => x.kind === 'next').length, regOnlyNoAwb: regOnly.filter(x => x.kind === 'noawb').length,
-    payableTotal: sumPay(() => true), payableMissing: sumPay(x => x.status === 'missing'), payableOther: sumPay(x => x.status === 'othco'),    gainAmt, sellAmt, gainPct: sellAmt > 0 ? r2(gainAmt / sellAmt * 100) : null, gainLines: gl.length,
+    payableTotal: sumPay(() => true), payableMissing: sumPay(x => x.status === 'missing'), payableOther: sumPay(x => x.status === 'othco'),
+    gainAmt, sellAmt, gainPct: sellAmt > 0 ? r2(gainAmt / sellAmt * 100) : null, gainLines: gl.length,
     adjLines: out.filter(x => x.cass.adj).length, regRows: regRows.length, covers, primary, companies };
   return { rows: out, regOnly, byAirline, summary, scopeMsgs, opts: o, primary, companies };
 }
@@ -1996,7 +1997,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = api; else 
         o.invDate = dmy((first(L, /^Date\s*:\s*(\d{1,2}-[A-Za-z]{3}-\d{2,4})/) || [])[1]);
         o.gstin = (first(L, /GST NO:\s*([0-9A-Z]{15})/) || [])[1] || '';
         const mn = first(L, /^Master Number\s*:\s*(\d{3}-\d{8})/);
-        if (mn) {          o.invNo = (L.map(l => l.match(/\b(\d{3}-\d{12})\b/)).find(Boolean) || [])[1];
+        if (mn) {
+          o.invNo = (L.map(l => l.match(/\b(\d{3}-\d{12})\b/)).find(Boolean) || [])[1];
           o.invDate = dmy((first(L, /^Date\s*:\s*(\d{1,2}-[A-Za-z]{3}-\d{4})/) || [])[1]);
           const cw = N((first(L, /^Chrg\. Weight \(Kgs\)\s*:\s*([\d.,]+)/) || [])[1]);
           let basic = 0, due = 0, cg = 0, sg = 0, tx = 0;
@@ -2995,7 +2997,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = api; else 
       ['fGainLow', '"Gain below the minimum"'], ['fGainHigh', '"Gain above the maximum"'], ['fSellW', '"Sell rate not entered"']
     ].filter(p => !((p[0] === 'fQuote' && !hasQ) || ((p[0] === 'fAbook' || p[0] === 'fAloss') && !hasA)));
     F.what = '_xlfn.TEXTJOIN(" | ",TRUE,' + WHAT.map(p => 'IF([' + p[0] + ']<>"",' + p[1] + ',"")').join(',') + ')';
-    extra.forEach((n, i) => { F['x' + i] = 'IF([nH]=0,"",INDEX(Register!$' + R['x' + i] + ':$' + R['x' + i] + ',MATCH([key],' + KEYRG + ',0)))'; });    const GF = { cgst: 'IF([gstType]="IGST",0,ROUND([taxable]*[gstRate]/200,2))', sgst: 'IF([gstType]="IGST",0,ROUND([taxable]*[gstRate]/200,2))', igst: 'IF([gstType]="IGST",ROUND([taxable]*[gstRate]/100,2),0)' };
+    extra.forEach((n, i) => { F['x' + i] = 'IF([nH]=0,"",INDEX(Register!$' + R['x' + i] + ':$' + R['x' + i] + ',MATCH([key],' + KEYRG + ',0)))'; });
+    const GF = { cgst: 'IF([gstType]="IGST",0,ROUND([taxable]*[gstRate]/200,2))', sgst: 'IF([gstType]="IGST",0,ROUND([taxable]*[gstRate]/200,2))', igst: 'IF([gstType]="IGST",ROUND([taxable]*[gstRate]/100,2),0)' };
     const fx = (tpl, r) => tpl.replace(/\[\[(\w+)\]\]/g, (m, k) => '$' + L[k] + ':$' + L[k]).replace(/\[(\w+)\]/g, (m, k) => L[k] + r);
     ar(wsRec, C.map(c => c.h)); styleHeader(wsRec, C.length, 56); C.forEach((c, i) => { wsRec.getColumn(i + 1).width = c.w; });
     const idxOf = k => C.findIndex(c => c.k === k) + 1;
