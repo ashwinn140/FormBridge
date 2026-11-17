@@ -1,57 +1,30 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#101923">
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#101923">
 <title>NGL Digital Workspace</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{color-scheme:dark;--bg:#0c131c;--surface:#141f2b;--surface2:#192735;--ink:#edf4f8;--muted:#a3b3c1;--faint:#718394;--line:#2b3b49;--blue:#74b7ff;--cyan:#6bd7d0;--violet:#b5a1ff;--amber:#f2c078;--radius:18px}
 *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:radial-gradient(ellipse at 12% 0%,#1a3144 0,transparent 42%),radial-gradient(ellipse at 100% 20%,#242044 0,transparent 34%),var(--bg);color:var(--ink);font-family:'DM Sans',sans-serif;min-height:100vh}
-.wrap{max-width:1120px;margin:0 auto;padding:54px 26px 40px}.top{display:flex;align-items:center;justify-content:space-between;gap:16px}.brand{display:flex;align-items:center;gap:11px;font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);font-weight:700}.mark{width:34px;height:34px;border-radius:11px;background:linear-gradient(135deg,var(--blue),var(--cyan),var(--violet));box-shadow:0 8px 28px #6bb9ff33}
-.pill{border:1px solid var(--line);border-radius:999px;padding:8px 12px;color:var(--muted);font-size:11px;letter-spacing:.08em;text-transform:uppercase}
+.wrap{max-width:1120px;margin:0 auto;padding:54px 26px 40px}.top{display:flex;align-items:center;justify-content:space-between;gap:16px}.brand{display:flex;align-items:center;gap:11px;font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);font-weight:700}.mark{width:34px;height:34px;border-radius:11px;background:linear-gradient(135deg,var(--blue),var(--cyan),var(--violet));box-shadow:0 8px 28px #6bb9ff33}.pill{border:1px solid var(--line);border-radius:999px;padding:8px 12px;color:var(--muted);font-size:11px;letter-spacing:.08em;text-transform:uppercase}
 .hero{padding:68px 0 42px;max-width:760px}.eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:.18em;color:var(--cyan);font-weight:700}.hero h1{font:700 clamp(38px,6vw,64px)/1.04 'Space Grotesk',sans-serif;letter-spacing:-.045em;margin:16px 0}.hero p{font-size:16px;line-height:1.7;color:var(--muted);max-width:620px;margin:0}
 .section{margin:30px 0 38px}.section-head{display:flex;align-items:center;gap:13px;margin-bottom:16px}.num{width:30px;height:30px;display:grid;place-items:center;border-radius:10px;background:var(--surface2);color:var(--cyan);font:600 12px 'Space Grotesk'}.section h2{font:600 21px 'Space Grotesk';margin:0}.section-sub{margin:5px 0 0 43px;color:var(--faint);font-size:13px}
-.cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.card{position:relative;display:flex;flex-direction:column;min-height:188px;padding:23px;background:linear-gradient(145deg,var(--surface),#111b26);border:1px solid var(--line);border-radius:var(--radius);text-decoration:none;color:inherit;transition:transform .18s,border-color .18s,box-shadow .18s;overflow:hidden}.card:after{content:"";position:absolute;width:150px;height:150px;border-radius:50%;right:-68px;top:-78px;background:var(--glow);filter:blur(1px);opacity:.12}.card:hover{transform:translateY(-3px);border-color:var(--accent);box-shadow:0 16px 40px #0004}.card:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
-.card.ai{--accent:var(--blue);--glow:var(--blue)}.card.dash{--accent:var(--violet);--glow:var(--violet)}.card.iata{--accent:var(--amber);--glow:var(--amber)}.card.gsa{--accent:var(--cyan);--glow:var(--cyan)}.card.form{--accent:var(--blue);--glow:var(--blue)}
-.icon{width:42px;height:42px;border-radius:13px;background:color-mix(in srgb,var(--accent) 13%,transparent);color:var(--accent);display:grid;place-items:center;margin-bottom:20px}.icon svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
-.card h3{font:600 18px 'Space Grotesk';margin:0 0 7px}.card p{font-size:13.5px;line-height:1.55;color:var(--muted);margin:0;max-width:48ch}.go{margin-top:auto;padding-top:20px;color:var(--accent);font-size:12px;font-weight:700;letter-spacing:.04em}.go span{font-size:16px;margin-left:5px}
-footer{margin-top:54px;border-top:1px solid var(--line);padding-top:18px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;color:var(--faint);font-size:12px}
-@media(max-width:650px){.wrap{padding:30px 18px}.hero{padding:52px 0 30px}.cards{grid-template-columns:1fr}.card{min-height:170px}.pill{font-size:10px}.section{margin:24px 0 32px}}
-</style>
-</head>
-<body>
-<main class="wrap">
-  <div class="top"><div class="brand"><span class="mark"></span>NGL · Digital Workspace</div><span class="pill">Internal applications</span></div>
-  <header class="hero"><div class="eyebrow">One workspace · Multiple tools</div><h1>NGL Digital<br>Workspace</h1><p>A single starting point for NGL’s business applications. Choose a workspace below to open the relevant tool. Each application continues to run independently.</p></header>
-
-  <section class="section" aria-labelledby="ai-title">
-    <div class="section-head"><span class="num">01</span><h2 id="ai-title">AI &amp; Business Intelligence</h2></div>
-    <div class="cards">
-      <a class="card ai" href="https://ai-insights-web-production.up.railway.app/" target="_blank" rel="noopener noreferrer"><div class="icon"><svg viewBox="0 0 24 24"><path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6 2.1 2.1m0-12.8-2.1 2.1m-8.6 8.6-2.1 2.1"/><circle cx="12" cy="12" r="4"/></svg></div><h3>AI Insights</h3><p>AI-powered business insights and operational analysis.</p><div class="go">Open application <span>↗</span></div></a>
-      <a class="card dash" href="https://ng-dashboard-production.up.railway.app/" target="_blank" rel="noopener noreferrer"><div class="icon"><svg viewBox="0 0 24 24"><path d="M4 19V5m0 14h17"/><rect x="7" y="11" width="3" height="5" rx="1"/><rect x="13" y="7" width="3" height="9" rx="1"/><rect x="19" y="4" width="3" height="12" rx="1"/></svg></div><h3>NG Performance Hub</h3><p>Business performance dashboards, shipment visibility and financial analysis.</p><div class="go">Open dashboard <span>↗</span></div></a>
-    </div>
-  </section>
-
-  <section class="section" aria-labelledby="accounting-title">
-    <div class="section-head"><span class="num">02</span><h2 id="accounting-title">Accounting &amp; Reconciliation</h2></div>
-    <div class="cards">
-      <a class="card iata" href="https://formbridge-production-9ae1.up.railway.app/cass-reconciliation.html" target="_blank" rel="noopener noreferrer"><div class="icon"><svg viewBox="0 0 24 24"><path d="M3 17.5 21 6l-5 12-4-4-9 3.5Z"/><path d="m12 14 4 4"/></svg></div><h3>IATA CASS Reconciliation</h3><p>Match CASS billing against the shipment register and identify AWB-level exceptions.</p><div class="go">Open reconciliation <span>↗</span></div></a>
-      <a class="card gsa" href="https://formbridge-production-9ae1.up.railway.app/ngl-gsa-reconciliation.html" target="_blank" rel="noopener noreferrer"><div class="icon"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h3m3 0h2m-8 4h8"/></svg></div><h3>NGL GSA Reconciliation</h3><p>Reconcile GSA invoices with air export shipments, pricing and job-profit data.</p><div class="go">Open reconciliation <span>↗</span></div></a>
-    </div>
-  </section>
-
-  <section class="section" aria-labelledby="ops-title">
-    <div class="section-head"><span class="num">03</span><h2 id="ops-title">Operations &amp; Productivity</h2></div>
-    <div class="cards">
-      <a class="card form" href="https://formbridge-production-9ae1.up.railway.app/formbridge-tools.html" target="_blank" rel="noopener noreferrer"><div class="icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10M7 13h6m-6 3h8"/></svg></div><h3>FormBridge · Export Filing Tools</h3><p>Vendor invoice and Excel converters, ERP upload utilities and operational workflow tools.</p><div class="go">Open FormBridge <span>↗</span></div></a>
-    </div>
-  </section>
-
-  <footer><span>Access is subject to each application’s own permissions.</span><span>NGL Digital Workspace</span></footer>
-</main>
-</body>
-</html>
+.cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.card{position:relative;display:flex;flex-direction:column;min-height:188px;padding:23px;background:linear-gradient(145deg,var(--surface),#111b26);border:1px solid var(--line);border-radius:var(--radius);text-decoration:none;color:inherit;transition:transform .18s,border-color .18s,box-shadow .18s;overflow:hidden}.card:after{content:"";position:absolute;width:150px;height:150px;border-radius:50%;right:-68px;top:-78px;background:var(--glow);filter:blur(1px);opacity:.12}.card:hover{transform:translateY(-3px);border-color:var(--accent);box-shadow:0 16px 40px #0004}.card:focus-visible{outline:2px solid var(--accent);outline-offset:3px}.card.ai{--accent:var(--blue);--glow:var(--blue)}.card.dash{--accent:var(--violet);--glow:var(--violet)}.card.customs{--accent:var(--cyan);--glow:var(--cyan)}.card.accounting{--accent:var(--amber);--glow:var(--amber)}
+.icon{width:42px;height:42px;border-radius:13px;background:color-mix(in srgb,var(--accent) 13%,transparent);color:var(--accent);display:grid;place-items:center;margin-bottom:20px}.icon svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}.card h3{font:600 18px 'Space Grotesk';margin:0 0 7px}.card p{font-size:13.5px;line-height:1.55;color:var(--muted);margin:0;max-width:48ch}.go{margin-top:auto;padding-top:20px;color:var(--accent);font-size:12px;font-weight:700;letter-spacing:.04em}.go span{font-size:16px;margin-left:5px}
+footer{margin-top:54px;border-top:1px solid var(--line);padding-top:18px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;color:var(--faint);font-size:12px}@media(max-width:650px){.wrap{padding:30px 18px}.hero{padding:52px 0 30px}.cards{grid-template-columns:1fr}.card{min-height:170px}.pill{font-size:10px}.section{margin:24px 0 32px}}
+</style></head><body><main class="wrap">
+<div class="top"><div class="brand"><span class="mark"></span>NGL · Digital Workspace</div><span class="pill">Internal applications</span></div>
+<header class="hero"><div class="eyebrow">One workspace · Multiple tools</div><h1>NGL Digital<br>Workspace</h1><p>A single starting point for NGL’s business applications. Choose a workspace below to open the relevant tools. Each application continues to run independently.</p></header>
+<section class="section" aria-labelledby="ai-title"><div class="section-head"><span class="num">01</span><h2 id="ai-title">AI &amp; Business Intelligence</h2></div><div class="cards">
+<a class="card ai" href="https://ai-insights-web-production.up.railway.app/" target="_blank" rel="noopener noreferrer"><div class="icon"><svg viewBox="0 0 24 24"><path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6 2.1 2.1m0-12.8-2.1 2.1m-8.6 8.6-2.1 2.1"/><circle cx="12" cy="12" r="4"/></svg></div><h3>AI Insights</h3><p>AI-powered business insights and operational analysis.</p><div class="go">Open application <span>↗</span></div></a>
+<a class="card dash" href="https://ng-dashboard-production.up.railway.app/" target="_blank" rel="noopener noreferrer"><div class="icon"><svg viewBox="0 0 24 24"><path d="M4 19V5m0 14h17"/><rect x="7" y="11" width="3" height="5" rx="1"/><rect x="13" y="7" width="3" height="9" rx="1"/><rect x="19" y="4" width="3" height="12" rx="1"/></svg></div><h3>NG Performance Hub</h3><p>Business performance dashboards, shipment visibility and financial analysis.</p><div class="go">Open dashboard <span>↗</span></div></a>
+</div></section>
+<section class="section" aria-labelledby="customs-title"><div class="section-head"><span class="num">02</span><h2 id="customs-title">FormBridge Customs</h2></div><p class="section-sub">Customer-specific customs filing converters and export documentation tools.</p><div class="cards">
+<a class="card customs" href="https://formbridge-production-9ae1.up.railway.app/formbridge-tools.html" target="_blank" rel="noopener noreferrer"><div class="icon"><svg viewBox="0 0 24 24"><path d="M4 4h16v16H4zM8 8h8M8 12h8M8 16h5"/></svg></div><h3>Customs Converters</h3><p>Sandvik, Seco, Anu Worles, VVDN and ASB customer-specific converters, with more customer tools to be added.</p><div class="go">Open FormBridge Customs <span>↗</span></div></a>
+</div></section>
+<section class="section" aria-labelledby="accounting-title"><div class="section-head"><span class="num">03</span><h2 id="accounting-title">FormBridge Accounting</h2></div><p class="section-sub">Accounting, airline settlement and reconciliation workflows.</p><div class="cards">
+<a class="card accounting" href="https://formbridge-production-9ae1.up.railway.app/formbridge-accounting.html" target="_blank" rel="noopener noreferrer"><div class="icon"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h3m3 0h2m-8 4h8"/></svg></div><h3>Accounting Tools</h3><p>IATA CASS and NGL GSA reconciliation, with room to add further accounting tools.</p><div class="go">Open FormBridge Accounting <span>↗</span></div></a>
+</div></section>
+<footer><span>Access is subject to each application’s own permissions.</span><span>NGL Digital Workspace</span></footer></main></body></html>
