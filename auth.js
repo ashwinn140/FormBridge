@@ -55,7 +55,22 @@ function makeLoginPage(message = '') {
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Sign in · FormBridge</title>
 <style>
-:root{color-scheme:light dark;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:#f3f5f4;color:#16222b}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px}.panel{width:min(100%,420px);background:#fff;border:1px solid #dce3e2;border-radius:14px;padding:32px;box-shadow:0 12px 36px #16222b12}.kicker{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#64747c;font-weight:700}h1{font-size:28px;margin:12px 0 6px}p{color:#58666e;line-height:1.5}label{display:block;font-size:13px;font-weight:650;margin:18px 0 6px}input{width:100%;padding:12px;border:1px solid #c7d0d1;border-radius:8px;font:inherit}button{margin-top:22px;width:100%;padding:12px;border:0;border-radius:8px;background:#0b5f66;color:white;font:inherit;font-weight:700;cursor:pointer}button:disabled{opacity:.6;cursor:wait}.error{min-height:22px;color:#a52b39;font-size:13px}.foot{font-size:12px;color:#77858a;margin-top:24px}@media(prefers-color-scheme:dark){:root{background:#11191e;color:#e7edef}.panel{background:#1a252b;border-color:#334149}p,.foot{color:#aab8bd}input{background:#11191e;color:#e7edef;border-color:#43535a}}
+:root{color-scheme:dark;font-family:'DM Sans',system-ui,-apple-system,"Segoe UI",sans-serif;background:#0c131c;color:#edf4f8}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(ellipse at 12% 0%,#1a3144 0,transparent 42%),radial-gradient(ellipse at 100% 20%,#242044 0,transparent 34%),#0c131c;color:#edf4f8}
+.panel{width:min(100%,440px);background:rgba(20,31,43,.94);border:1px solid #2b3b49;border-radius:18px;padding:34px;box-shadow:0 24px 70px #0006}
+.kicker{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#a3b3c1;font-weight:700;display:flex;align-items:center;gap:10px}
+.kicker:before{content:"";width:28px;height:28px;border-radius:9px;background:linear-gradient(135deg,#74b7ff,#6bd7d0,#b5a1ff);box-shadow:0 8px 28px #6bb9ff33}
+h1{font:700 32px/1.08 'Space Grotesk',system-ui,sans-serif;margin:22px 0 8px;letter-spacing:-.03em}
+p{color:#a3b3c1;line-height:1.55;margin:0}
+label{display:block;font-size:13px;font-weight:650;margin:20px 0 7px;color:#dce7ee}
+input{width:100%;padding:13px 14px;border:1px solid #35495a;border-radius:10px;background:#0c1721;color:#edf4f8;font:inherit;outline:none}
+input:focus{border-color:#74b7ff;box-shadow:0 0 0 3px #74b7ff22}
+button{margin-top:24px;width:100%;padding:13px 16px;border:0;border-radius:10px;background:linear-gradient(110deg,#74b7ff,#6bd7d0);color:#0c1721;font:700 14px 'DM Sans',system-ui,sans-serif;cursor:pointer}
+button:disabled{opacity:.6;cursor:wait}
+.error{min-height:22px;color:#ff9aa8;font-size:13px;margin-top:8px}
+.foot{font-size:12px;color:#718394;margin-top:24px;padding-top:18px;border-top:1px solid #2b3b49}
+@media(max-width:480px){.panel{padding:26px 22px}h1{font-size:29px}}
 </style></head><body><main class="panel"><div class="kicker">Export Filing Tools</div><h1>FormBridge</h1><p>Sign in with your authorised account to access the filing utilities.</p><form id="login"><label for="username">Username</label><input id="username" name="username" autocomplete="username" required maxlength="64"><label for="password">Password</label><input id="password" name="password" type="password" autocomplete="current-password" required maxlength="256"><div class="error" id="error" role="alert">${safeMessage}</div><button id="submit" type="submit">Sign in</button></form><div class="foot">Access is restricted to authorised users. Files continue to be processed locally in your browser.</div></main>
 <script>
 const form=document.getElementById('login');const button=document.getElementById('submit');const errorBox=document.getElementById('error');
