@@ -1,0 +1,34 @@
+name: FormBridge checks
+
+on:
+  push:
+    branches: [main, 'codex/**']
+  pull_request:
+    branches: [main]
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --ignore-scripts --no-audit --no-fund
+      - run: npm audit --omit=dev
+      - run: node --check server.js
+      - run: node --check auth.js
+      - run: node scripts/check-html-scripts.js
+      - run: npm test
+
+  legacy-converter-regression:
+    name: Legacy converter regression (known compatibility gaps)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --ignore-scripts --no-audit --no-fund
+      - run: node --test test/converter-regression.test.js
