@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Air India PDA → ERP Purchase Upload Converter</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#ffffff; --border:#d9dde3; --text:#1d2430; --muted:#5b6472;
+    --accent:#1f6feb; --accent-dark:#164a9e; --ok:#1a7f4e; --ok-bg:#e6f6ee;
+    --warn:#9a6700; --warn-bg:#fff6e0; --err:#b42318; --err-bg:#fde8e6;
+  }
+  *{box-sizing:border-box;}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);margin:0;padding:24px;line-height:1.45;}
+  .wrap{max-width:1180px;margin:0 auto;}
+  h1{font-size:21px;margin:0 0 4px;}
+  .sub{color:var(--muted);font-size:13.5px;margin-bottom:22px;}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:18px 20px;margin-bottom:16px;}
+  .card h2{font-size:15px;margin:0 0 4px;display:flex;align-items:center;gap:8px;}
+  .step-badge{background:var(--accent);color:#fff;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;flex:none;}
+  .card .hint{color:var(--muted);font-size:12.5px;margin:0 0 12px;}
+  .row{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;}
+  .col{display:flex;flex-direction:column;gap:4px;min-width:160px;}
+  label{font-size:12px;color:var(--muted);font-weight:600;}
+  input[type=text], input[type=number], select{
+    border:1px solid var(--border);border-radius:6px;padding:7px 9px;font-size:13px;background:#fff;color:var(--text);
+  }
+  input[type=file]{font-size:12.5px;}
+  button{
+    background:var(--accent);color:#fff;border:none;border-radius:6px;padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer;
+  }
+  button:hover{background:var(--accent-dark);}
+  button.secondary{background:#fff;color:var(--accent);border:1px solid var(--accent);}
+  button.secondary:hover{background:#eef4fe;}
+  button.small{padding:5px 10px;font-size:12px;}
+  button:disabled{background:#c7ccd4;cursor:not-allowed;}
+  table{border-collapse:collapse;width:100%;font-size:12.5px;}
+  th,td{border:1px solid var(--border);padding:5px 7px;text-align:left;white-space:nowrap;}
+  th{background:#f0f2f5;position:sticky;top:0;font-weight:700;}
+  .tbl-scroll{max-height:420px;overflow:auto;border:1px solid var(--border);border-radius:8px;}
+  .pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:700;}
+  .pill-ok{background:var(--ok-bg);color:var(--ok);}
+  .pill-warn{background:var(--warn-bg);color:var(--warn);}
+  .pill-err{background:var(--err-bg);color:var(--err);}
+  .stat-row{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;}
+  .stat{background:#f6f7f9;border:1px solid var(--border);border-radius:8px;padding:8px 14px;min-width:140px;}
+  .stat .num{font-size:19px;font-weight:700;}
+  .stat .lbl{font-size:11px;color:var(--muted);}
+  .mapping-table input{width:100%;font-size:12px;padding:4px 6px;}
+  .mapping-table td{padding:3px;}
+  .flexbar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;}
+  .msg{font-size:12.5px;padding:8px 10px;border-radius:6px;margin-top:8px;}
+  .msg-err{background:var(--err-bg);color:var(--err);}
+  .msg-ok{background:var(--ok-bg);color:var(--ok);}
+  .inline-input{width:150px;font-size:12px;padding:3px 5px;border:1px solid var(--border);border-radius:4px;}
+  .foot-note{color:var(--muted);font-size:11.5px;margin-top:6px;}
+  details summary{cursor:pointer;font-weight:600;font-size:13px;color:var(--accent);margin-bottom:8px;}
+  .tag{font-size:10.5px;background:#eef1f5;color:var(--muted);border-radius:4px;padding:1px 5px;margin-left:6px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Air India PDA Statement → ERP Purchase Upload Converter</h1>
+  <p class="sub">Converts the Air India (AITSL) PDA/CASS running-account statement into the Logi-Sys ERP "Purchase Upload" format — matching each charge line to its job number, splitting out CGST/SGST from the GST-inclusive amount, and classifying Export Terminal Handling, CCL Terminal Handling and Import Delivery-Order charges automatically. Runs entirely in your browser — nothing is uploaded anywhere.</p>
+
+  <!-- STEP 1 -->
+  <div class="card">
+    <h2><span class="step-badge">1</span> Upload the PDA Statement</h2>
+    <p class="hint">The Air India "PDA Statement" Excel export (the file with Bill No / Invoice No / Invoice Type / AWB No / DR / CR columns). PDF copies of the same statement aren't parsed — use the Excel version.</p>
+    <input type="file" id="stmtFile" accept=".xlsx,.xls">
+    <div id="stmtInfo" class="msg" style="display:none;"></div>
+  </div>
+
+  <!-- STEP 2 -->
+  <div class="card">
+    <h2><span class="step-badge">2</span> Upload Job / AWB register(s)</h2>
+    <p class="hint">One or more Excel registers that map an AWB number to a Logi-Sys Job No (shipment, console, or CCL job). Add as many as you need (e.g. NG and NCS registers) — matching tries them in the order listed. Matching is done on the last 8 characters of the AWB, so dashes/spacing/prefix differences don't matter.</p>
+    <div id="registerList"></div>
+    <button class="secondary small" id="addRegisterBtn" type="button">+ Add another register</button>
+  </div>
+
+  <!-- STEP 3 -->
+  <div class="card">
+    <h2><span class="step-badge">3</span> Mapping &amp; constants <span class="tag">editable</span></h2>
+    <p class="hint">Edit anything here before converting — these values are read fresh each time you click Convert.</p>
+    <div class="row">
+      <div class="col"><label>Organization</label><input type="text" id="orgName" value="Air India Air Transport Seriveces Limited"></div>
+      <div class="col"><label>Organization Branch</label><input type="text" id="orgBranch" value="MUMABI"></div>
+      <div class="col"><label>Branch</label><input type="text" id="branch" value="Mumbai Airport"></div>
+      <div class="col"><label>Currency</label><input type="text" id="currency" value="INR"></div>
+      <div class="col"><label>Exch. Rate</label><input type="number" id="exchRate" value="1" step="0.0001"></div>
+      <div class="col"><label>GST % (total)</label><input type="number" id="gstRate" value="18" step="0.01"></div>
+      <div class="col"><label>Avail Tax Credit %</label><input type="number" id="taxCredit" value="100" step="0.01"></div>
+    </div>
+    <div class="row" style="margin-top:10px;">
+      <div class="col"><label>Entry / Posting / Due Date</label>
+        <select id="dateMode">
+          <option value="period-end" selected>Statement period end (auto-detected)</option>
+          <option value="manual">Manual date below</option>
+        </select>
+      </div>
+      <div class="col"><label>Manual date (if selected above)</label><input type="text" id="manualDate" placeholder="DD/MM/YYYY"></div>
+      <div class="col"><label>FY start month (1-12)</label><input type="number" id="fyStartMonth" value="4" min="1" max="12"></div>
+    </div>
+
+    <details style="margin-top:14px;">
+      <summary>Invoice-type → charge mapping</summary>
+      <p class="hint">Which ERP charge, cost centre, LOB and Ref Type to use for each Air India "Invoice Type" value. Rows with an Invoice Type not listed here are skipped and reported as "unmapped type".</p>
+      <div class="tbl-scroll" style="max-height:220px;">
+        <table class="mapping-table" id="chargeMapTable">
+          <thead><tr>
+            <th>Invoice Type</th><th>Charge / GL Name</th><th>Cost Center</th><th>LOB</th><th>Ref Type</th><th></th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <button class="secondary small" id="addMapRowBtn" type="button" style="margin-top:8px;">+ Add rule</button>
+
+      <p class="hint" style="margin-top:14px;">CCL override — if the matched Job No contains this text, the row's Charge/GL Name, LOB and Ref Type are replaced (Cost Center is kept). Leave the "contains" box empty to disable.</p>
+      <div class="row">
+        <div class="col"><label>Job No contains</label><input type="text" id="cclContains" value="/CCL/"></div>
+        <div class="col"><label>Charge / GL Name</label><input type="text" id="cclCharge" value="Terminal Handling Charges CCL - AE"></div>
+        <div class="col"><label>LOB</label><input type="text" id="cclLob" value="CCL EXP"></div>
+        <div class="col"><label>Ref Type (blank = none)</label><input type="text" id="cclRefType" value=""></div>
+      </div>
+    </details>
+  </div>
+
+  <!-- STEP 4 -->
+  <div class="card">
+    <div class="flexbar">
+      <h2 style="margin:0;"><span class="step-badge">4</span> Convert</h2>
+      <button id="convertBtn" disabled>Convert statement</button>
+    </div>
+    <div id="convertMsg"></div>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="card" id="resultsCard" style="display:none;">
+    <h2>Results</h2>
+    <div class="stat-row" id="statRow"></div>
+    <div class="foot-note" id="tieOutNote"></div>
+
+    <div style="margin-top:16px;">
+      <div class="flexbar">
+        <h2 style="font-size:13.5px;margin:0;">Matched lines → will go to Purchase Upload (<span id="matchedCount">0</span>)</h2>
+      </div>
+      <div class="tbl-scroll" id="matchedTableWrap" style="margin-top:8px;"></div>
+    </div>
+
+    <div style="margin-top:18px;">
+      <div class="flexbar">
+        <h2 style="font-size:13.5px;margin:0;color:var(--warn);">Needs a job number — not yet in the upload (<span id="unmatchedCount">0</span>)</h2>
+      </div>
+      <p class="hint">Type a job number into any row below, then re-run "Apply manual job numbers" to pull it into the matched list.</p>
+      <div class="tbl-scroll" id="unmatchedTableWrap" style="margin-top:8px;"></div>
+      <button class="secondary small" id="applyManualBtn" type="button" style="margin-top:8px;">Apply manual job numbers</button>
+    </div>
+
+    <div style="margin-top:18px;">
+      <div class="flexbar">
+        <h2 style="font-size:13.5px;margin:0;color:var(--muted);">Credit / cancellation / TDS lines — not part of the purchase upload (<span id="skippedCount">0</span>)</h2>
+      </div>
+      <p class="hint">These are CR-side account movements (cancellations, TDS credits, etc.), not vendor charges, so they are left out of the purchase upload. Review and post them separately in the ERP if needed.</p>
+      <div class="tbl-scroll" id="skippedTableWrap" style="margin-top:8px;"></div>
+    </div>
+
+    <div style="margin-top:20px;">
+      <button id="downloadBtn">⬇ Download Purchase Upload workbook (.xlsx)</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const TEMPLATE_HEADERS = ["Entry Date","Posting Date","Organization","Organization Branch","Vendor Inv No","Vendor Inv Date",
+  "Currency","ExchRate","Narration","Due Date","Charge or GL","Charge or GL Name","Charge or GL Amount","DR or CR",
+  "Cost Center","Branch"," Charge Narration","TaxGroup","Tax Type","SAC or HSN","Taxcode1","Taxcode1 Amt","","Taxcode2",
+  "Taxcode2 Amt","Taxcode3","Taxcode3 Amt","Taxcode4","Taxcode4 Amt","Avail Tax Credit","LOB","Ref Type","Ref No",
+  "Amount ","Start Date","End Date","WH Tax Code","WH Tax Percentage","WH Tax Taxable","WH Tax Amount","Round Off","CC Code"];
+
+let state = {
+  stmtRows: [],      // raw parsed statement rows
+  periodEndDate: null,
+  registers: [],     // {file, lookup: Map(key8 -> job)}
+  matched: [],
+  unmatched: [],
+  skipped: [],
+};
+
+// ---------- helpers ----------
+function pad2(n){ return String(n).padStart(2,'0'); }
+
+function excelSerialToDate(v){
+  // v may already be a JS Date (cellDates:true), a "DD/MM/YYYY HH:MM:SS" string, or a serial number
+  if (v instanceof Date) return v;
+  if (typeof v === 'number') {
+    return new Date(Math.round((v - 25569) * 86400 * 1000));
+  }
+  if (typeof v === 'string') {
+    const m = v.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2}):(\d{2}))?/);
+    if (m) {
+      return new Date(+m[3], +m[2]-1, +m[1], +(m[4]||0), +(m[5]||0), +(m[6]||0));
+    }
+  }
+  return null;
+}
+
+function fmtDateDMY(d){
+  if (!d) return '';
+  return pad2(d.getDate())+'/'+pad2(d.getMonth()+1)+'/'+d.getFullYear();
+}
+
+function fyRange(d, startMonth){
+  // startMonth is 1-12 (e.g. 4 = April). Returns {start:Date, end:Date}
+  const y = d.getFullYear(), m = d.getMonth()+1; // 1-12
+  let fyStartYear = (m >= startMonth) ? y : y - 1;
+  const start = new Date(fyStartYear, startMonth-1, 1);
+  const end = new Date(fyStartYear+1, startMonth-1, 0); // day before next FY start
+  return {start, end};
+}
+
+function last8(str){
+  if (str === null || str === undefined) return '';
+  const s = String(str).trim();
+  return s.length > 8 ? s.slice(-8) : s;
+}
+
+function normalizeAwbKeyFromRegister(str){
+  // registers may store AWB with dashes/spaces, e.g. "071-62727313"
+  if (str === null || str === undefined) return '';
+  const s = String(str).trim().replace(/[\s-]/g,'');
+  return last8(s);
+}
+
+function formatAwbForNarration(raw){
+  const s = String(raw||'').trim();
+  if (/^\d{11}$/.test(s)) return s.slice(0,3) + '-' + s.slice(3);
+  return s;
+}
+
+function round2(n){ return Math.round((n + Number.EPSILON) * 100) / 100; }
+
+// ---------- Step 1: statement upload ----------
+document.getElementById('stmtFile').addEventListener('change', async (e) => {
+  const f = e.target.files[0];
+  const infoBox = document.getElementById('stmtInfo');
+  if (!f) return;
+  try {
+    const buf = await f.arrayBuffer();
+    const wb = XLSX.read(buf, {cellDates:true});
+    // find a sheet that actually has the 'Bill No' header
+    let rows = null, usedSheet = null;
+    for (const name of wb.SheetNames) {
+      const ws = wb.Sheets[name];
+      const aoa = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:null});
+      const hdrIdx = aoa.findIndex(r => r && r[0] === 'Bill No');
+      if (hdrIdx >= 0) { rows = aoa; usedSheet = name; state._hdrIdx = hdrIdx; break; }
+    }
+    if (!rows) throw new Error("Couldn't find a 'Bill No' header row in any sheet of this workbook.");
+
+    // period end date: scan rows above header for a 'Date To' cell
+    let periodEnd = null;
+    for (let i=0; i<state._hdrIdx; i++){
+      const r = rows[i] || [];
+      const idx = r.findIndex(c => c === 'Date To');
+      if (idx >= 0 && r[idx+1] !== undefined) { periodEnd = excelSerialToDate(r[idx+1]); break; }
+    }
+    state.periodEndDate = periodEnd;
+
+    const dataRows = [];
+    for (let i = state._hdrIdx+1; i < rows.length; i++){
+      const r = rows[i] || [];
+      const billNo = r[0];
+      if (billNo === null || billNo === undefined || String(billNo).trim()==='') continue;
+      if (String(billNo).trim().toLowerCase() === 'total') continue;
+      dataRows.push({
+        billNo: String(billNo).trim(),
+        invoiceNo: r[1] !== null && r[1] !== undefined ? String(r[1]).trim() : '',
+        invoiceType: r[2] !== null && r[2] !== undefined ? String(r[2]).trim() : '',
+        awbRaw: r[3] !== null && r[3] !== undefined ? String(r[3]).trim() : '',
+        transactionDt: excelSerialToDate(r[4]),
+        dr: Number(r[5]) || 0,
+        cr: Number(r[6]) || 0,
+      });
+    }
+    state.stmtRows = dataRows;
+    const totalDr = dataRows.reduce((s,r)=>s+r.dr,0);
+    const totalCr = dataRows.reduce((s,r)=>s+r.cr,0);
+    infoBox.style.display='block';
+    infoBox.className = 'msg msg-ok';
+    infoBox.textContent = `Parsed "${usedSheet}" — ${dataRows.length} transaction lines. Period end: ${periodEnd?fmtDateDMY(periodEnd):'not found (set manually in Step 3)'}. Total DR ₹${totalDr.toLocaleString('en-IN',{minimumFractionDigits:2})}, Total CR ₹${totalCr.toLocaleString('en-IN',{minimumFractionDigits:2})}.`;
+    checkReady();
+  } catch (err) {
+    infoBox.style.display='block';
+    infoBox.className = 'msg msg-err';
+    infoBox.textContent = 'Could not read this file: ' + err.message;
+  }
+});
+
+// ---------- Step 2: registers ----------
+let registerSeq = 0;
+function addRegisterRow(){
+  registerSeq++;
+  const id = 'reg_'+registerSeq;
+  const div = document.createElement('div');
+  div.className = 'card';
+  div.style.margin = '10px 0';
+  div.style.background = '#fafbfc';
+  div.innerHTML = `
+    <div class="row">
+      <div class="col" style="min-width:220px;">
+        <label>Register file ${registerSeq}</label>
+        <input type="file" accept=".xlsx,.xls" id="${id}_file">
+      </div>
+      <div class="col"><label>Sheet</label><select id="${id}_sheet"></select></div>
+      <div class="col"><label>AWB column</label><select id="${id}_awbcol"></select></div>
+      <div class="col"><label>Job No column</label><select id="${id}_jobcol"></select></div>
+      <div class="col"><label>Label (optional)</label><input type="text" id="${id}_label" placeholder="e.g. NG register"></div>
+      <div class="col"><button class="secondary small" type="button" onclick="this.closest('.card').remove(); checkReady();">Remove</button></div>
+    </div>
+    <div id="${id}_msg" class="msg" style="display:none;"></div>
+  `;
+  document.getElementById('registerList').appendChild(div);
+
+  document.getElementById(id+'_file').addEventListener('change', async (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    const buf = await f.arrayBuffer();
+    const wb = XLSX.read(buf, {cellDates:true});
+    const sheetSel = document.getElementById(id+'_sheet');
+    sheetSel.innerHTML = wb.SheetNames.map(n=>`<option value="${n}">${n}</option>`).join('');
+    const populateCols = () => {
+      const ws = wb.Sheets[sheetSel.value];
+      const aoa = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:null});
+      const headerRow = (aoa[0]||[]).map((c,i)=> c===null||c===undefined||String(c).trim()==='' ? `Column ${i+1}` : String(c));
+      const awbSel = document.getElementById(id+'_awbcol');
+      const jobSel = document.getElementById(id+'_jobcol');
+      const opts = headerRow.map((h,i)=>`<option value="${i}">${h}</option>`).join('');
+      awbSel.innerHTML = opts; jobSel.innerHTML = opts;
+      // best-effort auto guess
+      headerRow.forEach((h,i)=>{
+        const hl = h.toLowerCase();
+        if (hl.includes('awb')) awbSel.value = i;
+        if (hl.includes('job')) jobSel.value = i;
+      });
+      div._aoa = aoa;
+    };
+    populateCols();
+    sheetSel.addEventListener('change', populateCols);
+    div._wbReady = true;
+    checkReady();
+  });
+
+  state.registers.push({id, div});
+}
+document.getElementById('addRegisterBtn').addEventListener('click', addRegisterRow);
+addRegisterRow(); // start with one
+
+function buildRegisterLookups(){
+  const lookups = [];
+  document.querySelectorAll('#registerList > div').forEach(div => {
+    if (!div._aoa) return;
+    const idPrefix = div.querySelector('input[type=file]').id.replace('_file','');
+    const awbColIdx = +document.getElementById(idPrefix+'_awbcol').value;
+    const jobColIdx = +document.getElementById(idPrefix+'_jobcol').value;
+    const label = document.getElementById(idPrefix+'_label').value || idPrefix;
+    const map = new Map();
+    const aoa = div._aoa;
+    for (let i=1; i<aoa.length; i++){
+      const r = aoa[i];
+      if (!r) continue;
+      const awbVal = r[awbColIdx];
+      const jobVal = r[jobColIdx];
+      if (awbVal === null || awbVal === undefined || String(awbVal).trim()==='') continue;
+      if (jobVal === null || jobVal === undefined || String(jobVal).trim()==='') continue;
+      const key = normalizeAwbKeyFromRegister(awbVal);
+      if (key && !map.has(key)) map.set(key, String(jobVal).trim());
+    }
+    lookups.push({label, map});
+  });
+  return lookups;
+}
+
+// ---------- Step 3: charge mapping table ----------
+const defaultMapRows = [
+  {type:'EXPORT-TSP', charge:'Terminal Handling Charges - Air', cc:'Air Export', lob:'AIR EXP', ref:'SHP'},
+  {type:'DO CHARGES', charge:'Delivery Order Charges - Air', cc:'Air Import', lob:'AIR IMP', ref:'CON'},
+];
+function addMapRow(data){
+  data = data || {type:'', charge:'', cc:'', lob:'', ref:''};
+  const tbody = document.querySelector('#chargeMapTable tbody');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input type="text" value="${data.type}"></td>
+    <td><input type="text" value="${data.charge}"></td>
+    <td><input type="text" value="${data.cc}"></td>
+    <td><input type="text" value="${data.lob}"></td>
+    <td><input type="text" value="${data.ref}"></td>
+    <td><button class="secondary small" type="button" onclick="this.closest('tr').remove();">✕</button></td>
+  `;
+  tbody.appendChild(tr);
+}
+defaultMapRows.forEach(addMapRow);
+document.getElementById('addMapRowBtn').addEventListener('click', ()=>addMapRow());
+
+function readChargeMap(){
+  const rows = [];
+  document.querySelectorAll('#chargeMapTable tbody tr').forEach(tr=>{
+    const inputs = tr.querySelectorAll('input');
+    rows.push({
+      type: inputs[0].value.trim(),
+      charge: inputs[1].value.trim(),
+      cc: inputs[2].value.trim(),
+      lob: inputs[3].value.trim(),
+      ref: inputs[4].value.trim(),
+    });
+  });
+  return rows;
+}
+
+// ---------- ready check ----------
+function checkReady(){
+  document.getElementById('convertBtn').disabled = !(state.stmtRows.length > 0);
+}
+
+// ---------- conversion ----------
+document.getElementById('convertBtn').addEventListener('click', runConversion);
+
+function resolveJob(awbRaw){
+  const key = last8(awbRaw);
+  const lookups = buildRegisterLookups();
+  for (const l of lookups){
+    if (l.map.has(key)) return {job: l.map.get(key), source: l.label};
+  }
+  return null;
+}
+
+function buildOutputRow(r, job){
+  const gstRate = parseFloat(document.getElementById('gstRate').value) / 100;
+  const exchRate = parseFloat(document.getElementById('exchRate').value) || 1;
+  const currency = document.getElementById('currency').value;
+  const orgName = document.getElementById('orgName').value;
+  const orgBranch = document.getElementById('orgBranch').value;
+  const branch = document.getElementById('branch').value;
+  const taxCredit = parseFloat(document.getElementById('taxCredit').value);
+  const fyStartMonth = parseInt(document.getElementById('fyStartMonth').value,10) || 4;
+  const dateMode = document.getElementById('dateMode').value;
+
+  let entryDate;
+  if (dateMode === 'manual') {
+    entryDate = excelSerialToDate(document.getElementById('manualDate').value) || state.periodEndDate;
+  } else {
+    entryDate = state.periodEndDate;
+  }
+
+  const mapRows = readChargeMap();
+  const rule = mapRows.find(m => m.type === r.invoiceType);
+  if (!rule) return {error: 'unmapped-type'};
+
+  let chargeName = rule.charge, cc = rule.cc, lob = rule.lob, ref = rule.ref;
+  const cclContains = document.getElementById('cclContains').value.trim();
+  if (cclContains && job.includes(cclContains)) {
+    chargeName = document.getElementById('cclCharge').value;
+    lob = document.getElementById('cclLob').value;
+    ref = document.getElementById('cclRefType').value;
+  }
+
+  const chargeAmt = r.dr / (1 + gstRate);
+  const taxEach = chargeAmt * (gstRate/2);
+  const fy = fyRange(r.transactionDt || entryDate, fyStartMonth);
+  const narration = `MAWB NO ${formatAwbForNarration(r.awbRaw)} JOB NO. ${job}`;
+
+  const row = {};
+  row["Entry Date"] = entryDate; row["Posting Date"] = entryDate;
+  row["Organization"] = orgName; row["Organization Branch"] = orgBranch;
+  row["Vendor Inv No"] = r.invoiceNo; row["Vendor Inv Date"] = r.transactionDt;
+  row["Currency"] = currency; row["ExchRate"] = exchRate;
+  row["Narration"] = narration; row["Due Date"] = entryDate;
+  row["Charge or GL"] = "CHARGE"; row["Charge or GL Name"] = chargeName;
+  row["Charge or GL Amount"] = chargeAmt; row["DR or CR"] = "DR";
+  row["Cost Center"] = cc; row["Branch"] = branch; row[" Charge Narration"] = "";
+  row["TaxGroup"] = ""; row["Tax Type"] = "Taxable"; row["SAC or HSN"] = "";
+  row["Taxcode1"] = "CGST"; row["Taxcode1 Amt"] = taxEach; row[""] = "";
+  row["Taxcode2"] = "SGST"; row["Taxcode2 Amt"] = taxEach;
+  row["Taxcode3"] = ""; row["Taxcode3 Amt"] = ""; row["Taxcode4"] = ""; row["Taxcode4 Amt"] = "";
+  row["Avail Tax Credit"] = taxCredit; row["LOB"] = lob; row["Ref Type"] = ref; row["Ref No"] = job;
+  row["Amount "] = chargeAmt; row["Start Date"] = fy.start; row["End Date"] = fy.end;
+  row["WH Tax Code"] = ""; row["WH Tax Percentage"] = ""; row["WH Tax Taxable"] = ""; row["WH Tax Amount"] = "";
+  row["Round Off"] = "Yes"; row["CC Code"] = "";
+  return {row};
+}
+
+function runConversion(){
+  const matched = [], unmatched = [], skipped = [];
+  const mapRows = readChargeMap();
+
+  state.stmtRows.forEach((r, idx) => {
+    r._idx = idx;
+    // Credit-side / cancellation / TDS lines: no DR charge to book
+    if (r.dr <= 0 && r.cr > 0) { skipped.push({...r, reason:'Credit/cancellation/TDS entry (CR only)'}); return; }
+    if (r.dr <= 0) { skipped.push({...r, reason:'Zero amount line'}); return; }
+
+    const rule = mapRows.find(m => m.type === r.invoiceType);
+    if (!rule) { skipped.push({...r, reason:`Unmapped Invoice Type "${r.invoiceType}" — add a rule in Step 3`}); return; }
+
+    const found = resolveJob(r.awbRaw);
+    if (!found) { unmatched.push({...r, manualJob:''}); return; }
+    const built = buildOutputRow(r, found.job);
+    if (built.error) { skipped.push({...r, reason:'Unmapped Invoice Type'}); return; }
+    matched.push({...r, job: found.job, jobSource: found.source, output: built.row});
+  });
+
+  state.matched = matched; state.unmatched = unmatched; state.skipped = skipped;
+  renderResults();
+}
+
+document.getElementById('applyManualBtn').addEventListener('click', () => {
+  const stillUnmatched = [];
+  document.querySelectorAll('#unmatchedTableWrap tbody tr').forEach(tr => {
+    const idx = +tr.dataset.idx;
+    const manualJob = tr.querySelector('input').value.trim();
+    const r = state.unmatched.find(u => u._idx === idx);
+    if (!r) return;
+    if (manualJob) {
+      const built = buildOutputRow(r, manualJob);
+      if (!built.error) {
+        state.matched.push({...r, job: manualJob, jobSource: 'manual', output: built.row});
+        return;
+      }
+    }
+    stillUnmatched.push(r);
+  });
+  state.unmatched = stillUnmatched;
+  renderResults();
+});
+
+function renderResults(){
+  document.getElementById('resultsCard').style.display = 'block';
+  const totalStmtDr = state.stmtRows.reduce((s,r)=>s+r.dr,0);
+  const totalStmtCr = state.stmtRows.reduce((s,r)=>s+r.cr,0);
+  const totalMatchedCharge = state.matched.reduce((s,r)=>s+r.output["Charge or GL Amount"]+r.output["Taxcode1 Amt"]+r.output["Taxcode2 Amt"],0);
+  const totalUnmatchedDr = state.unmatched.reduce((s,r)=>s+r.dr,0);
+  const totalSkippedCr = state.skipped.reduce((s,r)=>s+r.cr,0);
+
+  document.getElementById('statRow').innerHTML = `
+    <div class="stat"><div class="num">${state.matched.length}</div><div class="lbl">Matched lines</div></div>
+    <div class="stat"><div class="num">${state.unmatched.length}</div><div class="lbl">Needs job no.</div></div>
+    <div class="stat"><div class="num">${state.skipped.length}</div><div class="lbl">Credit / other (skipped)</div></div>
+    <div class="stat"><div class="num">₹${totalMatchedCharge.toLocaleString('en-IN',{maximumFractionDigits:0})}</div><div class="lbl">Matched (gross, incl. GST)</div></div>
+  `;
+  const tie = totalMatchedCharge + totalUnmatchedDr;
+  const diff = Math.abs(tie - totalStmtDr);
+  document.getElementById('tieOutNote').innerHTML =
+    `Tie-out: Statement total DR ₹${totalStmtDr.toLocaleString('en-IN',{minimumFractionDigits:2})} vs. (matched + still-unmatched) ₹${tie.toLocaleString('en-IN',{minimumFractionDigits:2})}`
+    + (diff < 0.5 ? ' <span class="pill pill-ok">ties out</span>' : ` <span class="pill pill-err">₹${diff.toFixed(2)} difference — check Unmapped/skipped rows</span>`)
+    + ` &nbsp;|&nbsp; Statement total CR ₹${totalStmtCr.toLocaleString('en-IN',{minimumFractionDigits:2})} is entirely in the "credit/other" list below (not uploaded).`;
+
+  document.getElementById('matchedCount').textContent = state.matched.length;
+  document.getElementById('unmatchedCount').textContent = state.unmatched.length;
+  document.getElementById('skippedCount').textContent = state.skipped.length;
+
+  // matched table
+  let html = '<table><thead><tr><th>Bill No</th><th>Invoice No</th><th>Type</th><th>AWB</th><th>Job No</th><th>Source</th><th>DR Amt</th><th>Charge (ex-GST)</th><th>Charge/GL Name</th></tr></thead><tbody>';
+  state.matched.forEach(r=>{
+    html += `<tr><td>${r.billNo}</td><td>${r.invoiceNo}</td><td>${r.invoiceType}</td><td>${r.awbRaw}</td><td>${r.job}</td><td>${r.jobSource}</td><td>${r.dr.toFixed(2)}</td><td>${r.output["Charge or GL Amount"].toFixed(2)}</td><td>${r.output["Charge or GL Name"]}</td></tr>`;
+  });
+  html += '</tbody></table>';
+  document.getElementById('matchedTableWrap').innerHTML = html;
+
+  // unmatched table
+  let uhtml = '<table><thead><tr><th>Bill No</th><th>Invoice No</th><th>Type</th><th>AWB</th><th>DR Amt</th><th>Manual job no.</th></tr></thead><tbody>';
+  state.unmatched.forEach(r=>{
+    uhtml += `<tr data-idx="${r._idx}"><td>${r.billNo}</td><td>${r.invoiceNo}</td><td>${r.invoiceType}</td><td>${r.awbRaw}</td><td>${r.dr.toFixed(2)}</td><td><input class="inline-input" type="text" placeholder="e.g. BOAE26S1234"></td></tr>`;
+  });
+  uhtml += '</tbody></table>';
+  document.getElementById('unmatchedTableWrap').innerHTML = uhtml;
+
+  // skipped table
+  let shtml = '<table><thead><tr><th>Bill No</th><th>Invoice No</th><th>Type</th><th>AWB/Pay Mode</th><th>DR</th><th>CR</th><th>Reason</th></tr></thead><tbody>';
+  state.skipped.forEach(r=>{
+    shtml += `<tr><td>${r.billNo}</td><td>${r.invoiceNo}</td><td>${r.invoiceType}</td><td>${r.awbRaw}</td><td>${r.dr.toFixed(2)}</td><td>${r.cr.toFixed(2)}</td><td>${r.reason}</td></tr>`;
+  });
+  shtml += '</tbody></table>';
+  document.getElementById('skippedTableWrap').innerHTML = shtml;
+}
+
+// ---------- download ----------
+document.getElementById('downloadBtn').addEventListener('click', () => {
+  if (state.matched.length === 0) { alert('Nothing matched yet — run Convert first.'); return; }
+  const wb = XLSX.utils.book_new();
+
+  const outRows = state.matched.map(r => TEMPLATE_HEADERS.map(h => {
+    const v = r.output[h];
+    return v === undefined ? '' : v;
+  }));
+  const wsData = [TEMPLATE_HEADERS, ...outRows];
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  XLSX.utils.book_append_sheet(wb, ws, 'Purchase Upload');
+
+  if (state.unmatched.length) {
+    const uHeaders = ['Bill No','Invoice No','Invoice Type','AWB / Pay Mode','Transaction Date','DR Amount'];
+    const uRows = state.unmatched.map(r => [r.billNo, r.invoiceNo, r.invoiceType, r.awbRaw, r.transactionDt, r.dr]);
+    const wsU = XLSX.utils.aoa_to_sheet([uHeaders, ...uRows]);
+    XLSX.utils.book_append_sheet(wb, wsU, 'Needs job no');
+  }
+  if (state.skipped.length) {
+    const sHeaders = ['Bill No','Invoice No','Invoice Type','AWB / Pay Mode','Transaction Date','DR','CR','Reason'];
+    const sRows = state.skipped.map(r => [r.billNo, r.invoiceNo, r.invoiceType, r.awbRaw, r.transactionDt, r.dr, r.cr, r.reason]);
+    const wsS = XLSX.utils.aoa_to_sheet([sHeaders, ...sRows]);
+    XLSX.utils.book_append_sheet(wb, wsS, 'Credit-Other (not uploaded)');
+  }
+
+  XLSX.writeFile(wb, 'Purchase_Upload_AirIndia.xlsx', {cellDates:true});
+});
+</script>
+</body>
+</html>
